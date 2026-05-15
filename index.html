@@ -67,7 +67,9 @@
   .input { width: 100%; height: 44px; padding: 0 14px; border: 1px solid var(--border-strong); border-radius: 8px; background: white; outline: none; transition: border-color 0.15s, box-shadow 0.15s; }
   .input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft-2); }
   .input.upper { text-transform: uppercase; letter-spacing: 0.1em; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+  .input.invalid { border-color: var(--danger); box-shadow: 0 0 0 3px #fee2e2; }
   .label { display: block; font-weight: 500; font-size: 12px; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .helper { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
 
   .row { display: flex; gap: 12px; align-items: center; }
   .stack { display: flex; flex-direction: column; gap: 12px; }
@@ -79,8 +81,12 @@
   .landing-mark { width: 64px; height: 64px; margin: 0 auto 20px; color: var(--accent); }
   .landing h1 { font-size: 38px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 12px; }
   .landing-sub { color: var(--text-muted); margin-bottom: 36px; font-size: 16px; max-width: 460px; margin-left: auto; margin-right: auto; }
-  .landing-options { max-width: 380px; margin: 0 auto; text-align: left; }
-  .landing-or { text-align: center; color: var(--text-faint); font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; margin: 16px 0; }
+  .landing-options { max-width: 400px; margin: 0 auto; text-align: left; }
+  .landing-name-block { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 18px 16px; }
+  .landing-action-block { padding: 4px 0; }
+  .landing-action-label { font-size: 11px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.1em; text-align: center; margin-bottom: 12px; font-weight: 500; }
+  .landing-or-divider { display: flex; align-items: center; gap: 12px; color: var(--text-faint); font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; margin: 6px 0; }
+  .landing-or-divider::before, .landing-or-divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
   .landing-rules { margin-top: 48px; padding-top: 32px; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 14px; max-width: 520px; margin-left: auto; margin-right: auto; text-align: left; }
   .landing-rules h3 { font-size: 13px; color: var(--text); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 12px; }
   .landing-rules ol { padding-left: 20px; }
@@ -110,9 +116,20 @@
   .word-card { flex: 1; background: white; border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; display: flex; flex-direction: column; justify-content: center; }
   .word-card .label { margin-bottom: 2px; }
   .word-card .word { font-size: 26px; font-weight: 700; letter-spacing: -0.01em; }
-  .meta-card { background: white; border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; text-align: right; min-width: 140px; }
-  .meta-card .label { margin-bottom: 2px; text-align: right; }
-  .meta-card .meta-value { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .word-card .word-sub { font-size: 12px; color: var(--text-faint); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 500; font-variant-numeric: tabular-nums; }
+  .timer-card { background: white; border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 20px; min-width: 160px; display: flex; flex-direction: column; justify-content: center; }
+  .timer-card .label { margin-bottom: 4px; text-align: right; }
+  .timer-value { font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; line-height: 1; transition: color 0.2s; }
+  .timer-value.urgent { color: var(--danger); }
+  .timer-bar { height: 5px; background: var(--bg); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .timer-bar-fill { height: 100%; width: 100%; background: var(--accent); border-radius: 3px; transition: width 0.08s linear, background 0.2s; }
+  .timer-bar-fill.urgent { background: var(--danger); }
+  .timer-card.expired .timer-value { color: var(--text-muted); }
+
+  .done-row { display: flex; justify-content: center; padding: 8px 0; }
+  .done-btn { min-width: 240px; height: 52px; font-size: 17px; font-weight: 600; }
+  .draw-prompt { text-align: center; color: var(--text-muted); padding: 8px 0; font-size: 14px; }
+  .draw-prompt strong { color: var(--text); }
 
   .canvas-wrap { position: relative; background: white; border: 1px solid var(--border); border-radius: var(--radius-lg); aspect-ratio: 4/3; overflow: hidden; }
   canvas { display: block; width: 100%; height: 100%; touch-action: none; }
@@ -210,25 +227,26 @@ if (FB_CONFIGURED) {
 // =================================================================
 // WORD BANK
 // =================================================================
+// Curated for drawability: only concrete, visually distinct objects/animals/foods.
+// No abstract concepts, no jargon, nothing that requires text to be recognized.
 const WORD_BANK = [
-  // Design / tech
-  "wireframe","gradient","sticky note","whiteboard","sketch","figma","component","button",
-  "modal","tooltip","mascot","avatar","404 page","empty state","loading spinner","dark mode",
-  "hamburger menu","mood board","style guide","persona","kanban board","standup","retro","sprint",
-  "deadline","feedback","bug","pixel","designer","prototype",
   // Animals
-  "cat","dog","penguin","shark","octopus","snail","crab","flamingo","sloth","unicorn",
-  "dragon","dinosaur","butterfly","bee","frog","turtle","hedgehog","narwhal","platypus","axolotl",
+  "cat","dog","penguin","shark","octopus","crab","flamingo","unicorn","dragon",
+  "butterfly","bee","frog","turtle","snail","owl","panda","snake","elephant",
+  "giraffe","lion","fish","whale","jellyfish","spider","duck","pig","sheep","mouse",
   // Food
-  "banana","pizza","sushi","taco","donut","avocado","cupcake","ramen","burger","ice cream",
-  "pickle","pineapple","croissant","watermelon",
-  // Objects / scenes
-  "umbrella","rocket","robot","castle","lighthouse","sailboat","helicopter","submarine",
-  "telescope","volcano","rainbow","tornado","campfire","treasure chest","crown","wizard hat",
-  "magic wand","crystal ball","hot air balloon","ferris wheel","windmill","cactus","mailbox",
-  // Concepts (harder)
-  "silence","gravity","monday","jet lag","imposter syndrome","recursion","procrastination",
-  "deja vu","writers block","caffeine crash"
+  "banana","pizza","sushi","taco","donut","avocado","cupcake","burger","ice cream cone",
+  "pineapple","watermelon","strawberry","mushroom","hot dog","carrot","apple","egg",
+  // Vehicles
+  "rocket","sailboat","helicopter","submarine","bicycle","skateboard","car","train","airplane",
+  // Objects
+  "umbrella","castle","lighthouse","telescope","crown","magic wand","crystal ball",
+  "hot air balloon","windmill","cactus","mailbox","lamp","clock","key","sunglasses",
+  "headphones","camera","guitar","drum","kite","balloon","candle","hourglass","scissors",
+  "pencil","paintbrush","anchor","ladder","snowman","pumpkin","ghost","robot","mascot",
+  // Nature / weather
+  "tree","mountain","sun","moon","star","cloud","flower","snowflake","rainbow",
+  "volcano","tornado","campfire"
 ];
 
 // =================================================================
@@ -617,6 +635,7 @@ function render() {
     root.appendChild(renderSetupWarning());
     return;
   }
+  if (state.screen !== "drawing") cleanupDrawSession();
   root.innerHTML = "";
   const app = el("div", { class: "app" });
   app.appendChild(renderHeader());
@@ -667,39 +686,59 @@ function renderSetupWarning() {
 // LANDING
 // =================================================================
 function renderLanding() {
-  const nameInput = el("input", { class: "input", placeholder: "Your name", value: state.myName || "", maxlength: "20" });
-  const codeInput = el("input", { class: "input upper", placeholder: "ROOM", maxlength: "5" });
+  const nameInput = el("input", { class: "input", placeholder: "e.g. Jenton", value: state.myName || "", maxlength: "20" });
+  const codeInput = el("input", { class: "input upper", placeholder: "ABCDE", maxlength: "5" });
+
+  const flagInvalid = (input) => {
+    input.classList.add("invalid");
+    input.focus();
+    input.addEventListener("input", () => input.classList.remove("invalid"), { once: true });
+  };
+
   const tryJoin = async () => {
     const name = nameInput.value.trim();
     const code = codeInput.value.trim().toUpperCase();
-    if (!name) { state.error = "Enter your name"; render(); return; }
-    if (!code || code.length < 4) { state.error = "Enter a room code"; render(); return; }
+    if (!name) { flagInvalid(nameInput); state.error = "Enter your name first"; render(); return; }
+    if (!code || code.length < 4) { flagInvalid(codeInput); state.error = "Enter the room code"; render(); return; }
     try { await joinRoom(code, name); }
     catch (e) { state.error = e.message; render(); }
   };
   const tryCreate = async () => {
     const name = nameInput.value.trim();
-    if (!name) { state.error = "Enter your name"; render(); return; }
+    if (!name) { flagInvalid(nameInput); state.error = "Enter your name first"; render(); return; }
     try { await createRoom(name); }
     catch (e) { state.error = e.message; render(); }
   };
+
+  // Submit on Enter from the code input
+  codeInput.addEventListener("keydown", (e) => { if (e.key === "Enter") tryJoin(); });
 
   return el("div", { class: "card landing" },
     el("div", { class: "landing-mark", html: `<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" style="width:64px;height:64px;"><path d="M6 40c10 -22 22 -22 32 0s22 22 32 0" transform="translate(-3,0)"/></svg>` }),
     el("h1", null, "Stroke Relay"),
     el("p", { class: "landing-sub" }, "Each player gets a secret word and adds exactly one stroke before the canvas passes to the next person. Hilarity ensues."),
     el("div", { class: "landing-options stack-lg" },
-      el("div", { class: "stack" },
+      // Name block — visually grouped, clearly applies to both actions below
+      el("div", { class: "landing-name-block" },
         el("label", { class: "label" }, "Your name"),
         nameInput,
+        el("div", { class: "helper" }, "Used for both creating and joining a room."),
       ),
-      el("button", { class: "btn btn-primary btn-block btn-lg", onClick: tryCreate }, "Create a new room"),
-      el("div", { class: "landing-or" }, "or join existing"),
-      el("div", { class: "stack" },
-        el("label", { class: "label" }, "Room code"),
-        codeInput,
+      // Action: create
+      el("div", { class: "landing-action-block stack" },
+        el("div", { class: "landing-action-label" }, "Hosting? Start a new game" ),
+        el("button", { class: "btn btn-primary btn-block btn-lg", onClick: tryCreate }, "Create a new room"),
       ),
-      el("button", { class: "btn btn-secondary btn-block btn-lg", onClick: tryJoin }, "Join room"),
+      el("div", { class: "landing-or-divider" }, "or"),
+      // Action: join
+      el("div", { class: "landing-action-block stack" },
+        el("div", { class: "landing-action-label" }, "Joining? Enter the room code"),
+        el("div", { class: "stack" },
+          el("label", { class: "label" }, "Room code"),
+          codeInput,
+        ),
+        el("button", { class: "btn btn-secondary btn-block btn-lg", onClick: tryJoin }, "Join room"),
+      ),
     ),
     el("div", { class: "landing-rules" },
       el("h3", null, "How it works"),
@@ -763,6 +802,165 @@ function renderLobby() {
 // =================================================================
 // DRAWING SCREEN
 // =================================================================
+// Timer length per round, in seconds
+const ROUND_SECONDS = 3;
+
+// drawSession persists across renders WITHIN the same (round, drawing) so that
+// re-renders triggered by other players' updates don't destroy the canvas
+// the user is actively drawing on.
+let drawSession = null;
+
+function cleanupDrawSession() {
+  if (!drawSession) return;
+  if (drawSession.timerHandle) {
+    clearInterval(drawSession.timerHandle);
+    drawSession.timerHandle = null;
+  }
+  drawSession = null;
+}
+
+function initDrawSession(key) {
+  cleanupDrawSession();
+  const canvas = el("canvas", { class: "drawable" });
+  drawSession = {
+    key,
+    canvas,
+    isDrawing: false,
+    points: [],
+    strokeColor: state.selectedColor,
+    strokeWidth: state.selectedWidth,
+    finishedStroke: null,
+    startTime: Date.now(),
+    timerHandle: null,
+    submitting: false,
+  };
+  attachStrokeHandlers(canvas);
+  drawSession.timerHandle = setInterval(tickTimer, 80);
+}
+
+function tickTimer() {
+  if (!drawSession) return;
+  const elapsed = (Date.now() - drawSession.startTime) / 1000;
+  const remaining = Math.max(0, ROUND_SECONDS - elapsed);
+  const numEl = document.getElementById("timer-num");
+  const barEl = document.getElementById("timer-bar");
+  if (numEl) {
+    numEl.textContent = remaining.toFixed(1) + "s";
+    numEl.classList.toggle("urgent", remaining <= 1);
+  }
+  if (barEl) {
+    barEl.style.width = (remaining / ROUND_SECONDS * 100) + "%";
+    barEl.classList.toggle("urgent", remaining <= 1);
+  }
+  if (remaining <= 0 && !drawSession.submitting) {
+    drawSession.submitting = true;
+    clearInterval(drawSession.timerHandle);
+    drawSession.timerHandle = null;
+    handleTimerExpire();
+  }
+}
+
+function finishStrokeLocally() {
+  if (!drawSession || !drawSession.isDrawing) return;
+  drawSession.isDrawing = false;
+  if (drawSession.points.length === 0) return;
+  drawSession.finishedStroke = {
+    points: [...drawSession.points],
+    color: drawSession.strokeColor,
+    width: drawSession.strokeWidth,
+    playerId: state.myId,
+    playerName: state.myName,
+  };
+  drawSession.points = [];
+}
+
+async function handleTimerExpire() {
+  // Force-end any in-progress stroke
+  if (drawSession && drawSession.isDrawing) finishStrokeLocally();
+  const stroke = (drawSession && drawSession.finishedStroke) || {
+    points: [],
+    color: state.selectedColor,
+    width: state.selectedWidth,
+    playerId: state.myId,
+    playerName: state.myName,
+    skipped: true,
+  };
+  try { await submitStroke(stroke); }
+  catch (err) { state.error = "Failed to submit stroke"; render(); }
+}
+
+async function clickDone() {
+  if (!drawSession || !drawSession.finishedStroke || drawSession.submitting) return;
+  drawSession.submitting = true;
+  if (drawSession.timerHandle) {
+    clearInterval(drawSession.timerHandle);
+    drawSession.timerHandle = null;
+  }
+  try { await submitStroke(drawSession.finishedStroke); }
+  catch (err) { state.error = "Failed to submit stroke"; drawSession.submitting = false; render(); }
+}
+
+function attachStrokeHandlers(canvas) {
+  function getPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+    const y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+    return [x / rect.width, y / rect.height];
+  }
+  function start(e) {
+    if (!drawSession || drawSession.finishedStroke || drawSession.isDrawing || drawSession.submitting) return;
+    e.preventDefault();
+    drawSession.isDrawing = true;
+    drawSession.strokeColor = state.selectedColor;
+    drawSession.strokeWidth = state.selectedWidth;
+    drawSession.points = [getPos(e)];
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", end);
+    redrawSession();
+  }
+  function move(e) {
+    if (!drawSession || !drawSession.isDrawing) return;
+    e.preventDefault();
+    drawSession.points.push(getPos(e));
+    redrawSession();
+  }
+  function end(e) {
+    if (!drawSession || !drawSession.isDrawing) return;
+    e.preventDefault();
+    window.removeEventListener("mousemove", move);
+    window.removeEventListener("mouseup", end);
+    finishStrokeLocally();
+    redrawSession();
+    render();
+  }
+  canvas.addEventListener("mousedown", start);
+  canvas.addEventListener("touchstart", start, { passive: false });
+  canvas.addEventListener("touchmove", move, { passive: false });
+  canvas.addEventListener("touchend", end, { passive: false });
+  canvas.addEventListener("touchcancel", end, { passive: false });
+}
+
+function redrawSession() {
+  if (!drawSession) return;
+  const room = state.room;
+  if (!room) return;
+  const myDrawingId = currentDrawingForPlayer(room, state.myId);
+  if (!myDrawingId) return;
+  const existing = (room.drawings[myDrawingId].strokes) || [];
+  const { ctx, width, height } = setupCanvasResolution(drawSession.canvas);
+  ctx.clearRect(0, 0, width, height);
+  for (const s of existing) drawStrokeOnCanvas(ctx, s, width, height);
+  if (drawSession.finishedStroke) {
+    drawStrokeOnCanvas(ctx, drawSession.finishedStroke, width, height);
+  } else if (drawSession.points.length > 0) {
+    drawStrokeOnCanvas(ctx, {
+      points: drawSession.points,
+      color: drawSession.strokeColor,
+      width: drawSession.strokeWidth,
+    }, width, height);
+  }
+}
+
 function renderDrawing() {
   const room = state.room;
   if (!room) return el("div", null, "Loading...");
@@ -775,79 +973,113 @@ function renderDrawing() {
   const myDrawing = myDrawingId ? room.drawings[myDrawingId] : null;
   if (!myDrawing) return el("div", null, "Loading drawing...");
 
-  // Determine if this player has submitted their stroke for this round
   const strokesNow = (myDrawing.strokes || []).length;
   const submitted = strokesNow > round;
+  const sessionKey = `${round}_${myDrawingId}_${state.myId}`;
 
-  // Who else is still drawing?
+  // Lifecycle: tear down session when we've submitted; init fresh when round changes.
+  if (submitted) {
+    cleanupDrawSession();
+  } else if (!drawSession || drawSession.key !== sessionKey) {
+    initDrawSession(sessionKey);
+  }
+
+  // Others' progress
   const stillDrawing = players.filter(p => {
     if (p.id === state.myId) return false;
-    const theirDid = currentDrawingForPlayer(room, p.id);
-    if (!theirDid) return false;
-    const theirStrokes = (room.drawings[theirDid].strokes || []).length;
-    return theirStrokes <= round;
+    const did = currentDrawingForPlayer(room, p.id);
+    if (!did) return false;
+    return (room.drawings[did].strokes || []).length <= round;
   });
   const doneOthers = players.filter(p => {
     if (p.id === state.myId) return false;
-    const theirDid = currentDrawingForPlayer(room, p.id);
-    if (!theirDid) return false;
-    const theirStrokes = (room.drawings[theirDid].strokes || []).length;
-    return theirStrokes > round;
+    const did = currentDrawingForPlayer(room, p.id);
+    if (!did) return false;
+    return (room.drawings[did].strokes || []).length > round;
   });
 
   const wordCard = el("div", { class: "word-card" },
     el("div", { class: "label" }, "Your word"),
     el("div", { class: "word" }, myDrawing.word),
-  );
-  const metaCard = el("div", { class: "meta-card" },
-    el("div", { class: "label" }, "Round"),
-    el("div", { class: "meta-value" }, `${round + 1} / ${totalRounds}`),
+    el("div", { class: "word-sub" }, `Round ${round + 1} of ${totalRounds}`),
   );
 
-  // Canvas
-  const canvas = el("canvas", { class: submitted ? "" : "drawable" });
-  const canvasWrap = el("div", { class: "canvas-wrap" }, canvas);
-  if (round === 0) {
-    canvasWrap.appendChild(el("div", { class: "canvas-corner-hint" }, "Blank canvas — first stroke!"));
+  let timerCard;
+  if (submitted) {
+    timerCard = el("div", { class: "timer-card expired", id: "timer-card" },
+      el("div", { class: "label" }, "Time"),
+      el("div", { class: "timer-value" }, "—"),
+    );
   } else {
-    canvasWrap.appendChild(el("div", { class: "canvas-corner-hint" }, `${strokesNow} stroke${strokesNow === 1 ? "" : "s"} so far`));
+    const initialRemaining = drawSession ? Math.max(0, ROUND_SECONDS - (Date.now() - drawSession.startTime) / 1000) : ROUND_SECONDS;
+    const isUrgent = initialRemaining <= 1;
+    timerCard = el("div", { class: "timer-card", id: "timer-card" },
+      el("div", { class: "label" }, "Time left"),
+      el("div", { class: "timer-value" + (isUrgent ? " urgent" : ""), id: "timer-num" }, initialRemaining.toFixed(1) + "s"),
+      el("div", { class: "timer-bar" },
+        el("div", { class: "timer-bar-fill" + (isUrgent ? " urgent" : ""), id: "timer-bar", style: { width: (initialRemaining / ROUND_SECONDS * 100) + "%" }})
+      ),
+    );
   }
 
-  // Set up canvas after it's in the DOM
-  requestAnimationFrame(() => {
-    const existingStrokes = myDrawing.strokes || [];
-    renderCanvasStrokes(canvas, existingStrokes);
-    if (!submitted) attachDrawingHandlers(canvas, existingStrokes);
-  });
-
-  // Overlay for submitted state
+  // Canvas: cached for drawing, fresh for submitted view
+  let canvasEl;
+  if (submitted) {
+    canvasEl = el("canvas", { class: "" });
+    requestAnimationFrame(() => renderCanvasStrokes(canvasEl, myDrawing.strokes || []));
+  } else {
+    canvasEl = drawSession.canvas;
+  }
+  const canvasWrap = el("div", { class: "canvas-wrap" }, canvasEl);
+  canvasWrap.appendChild(el("div", { class: "canvas-corner-hint" },
+    round === 0 ? "Blank canvas" : `${strokesNow} stroke${strokesNow === 1 ? "" : "s"} so far`));
   if (submitted) {
     canvasWrap.appendChild(el("div", { class: "canvas-overlay" },
       el("div", { class: "canvas-overlay-content" },
-        el("div", { class: "status" }, "Stroke locked in"),
+        el("div", { class: "status" }, "Submitted"),
         el("div", { class: "sub" }, stillDrawing.length > 0
           ? `Waiting for ${stillDrawing.length} other${stillDrawing.length === 1 ? "" : "s"}...`
           : "Advancing to next round..."),
       ),
     ));
+  } else {
+    requestAnimationFrame(() => redrawSession());
   }
 
-  // Tools
-  const tools = submitted ? null : renderTools();
+  // Tools (only before stroke is drawn)
+  const showTools = !submitted && drawSession && !drawSession.finishedStroke;
+  const tools = showTools ? renderTools() : null;
 
-  // Waiting / progress strip
+  // Done button or draw prompt
+  let actionRow = null;
+  if (!submitted && drawSession) {
+    if (drawSession.finishedStroke) {
+      actionRow = el("div", { class: "done-row" },
+        el("button", {
+          class: "btn btn-primary done-btn",
+          disabled: drawSession.submitting,
+          onClick: clickDone,
+        }, drawSession.submitting ? "Submitting..." : "Done — submit my stroke"),
+      );
+    } else {
+      actionRow = el("div", { class: "draw-prompt" },
+        el("strong", null, "Click and drag"), " to make your one stroke. You have ", el("strong", null, ROUND_SECONDS + " seconds"), "."
+      );
+    }
+  }
+
+  // Player progress strip
   const waitingStrip = el("div", { class: "waiting-list-wrap" },
     el("div", { class: "label" }, `Round ${round + 1} progress`),
     el("div", { class: "waiting-list" },
-      ...[...doneOthers.map(p => el("span", { class: "waiting-chip done" }, p.name)),
-         ...(submitted ? [] : [el("span", { class: "waiting-chip done" }, state.myName + " (you)")]),
-         ...stillDrawing.map(p => el("span", { class: "waiting-chip" }, p.name)),
-         ...(submitted ? [] : [])
-        ]
+      ...doneOthers.map(p => el("span", { class: "waiting-chip done" }, p.name)),
+      ...(submitted ? [el("span", { class: "waiting-chip done" }, state.myName + " (you)")] : []),
+      ...stillDrawing.map(p => el("span", { class: "waiting-chip" }, p.name)),
+      ...(!submitted ? [el("span", { class: "waiting-chip" }, state.myName + " (you)")] : []),
     ),
   );
 
-  // Host controls (skip stuck players)
+  // Host controls
   let hostBox = null;
   if (state.isHost && stillDrawing.length > 0) {
     hostBox = el("div", { class: "host-controls" },
@@ -856,7 +1088,7 @@ function renderDrawing() {
         ...stillDrawing.map(p => el("button", {
           class: "btn btn-danger", style: { height: "32px", fontSize: "13px" },
           onClick: async () => {
-            if (confirm(`Skip ${p.name}'s stroke this round? Their stroke for this drawing will be left blank.`)) {
+            if (confirm(`Skip ${p.name}'s stroke this round? Their stroke will be left blank.`)) {
               try { await hostSkipPlayer(p.id); } catch (e) { state.error = e.message; render(); }
             }
           }
@@ -866,9 +1098,10 @@ function renderDrawing() {
   }
 
   return el("div", { class: "stack-lg" },
-    el("div", { class: "game-top" }, wordCard, metaCard),
+    el("div", { class: "game-top" }, wordCard, timerCard),
     canvasWrap,
     tools,
+    actionRow,
     waitingStrip,
     hostBox,
   );
@@ -903,76 +1136,6 @@ function renderTools() {
       ...widthEls
     ),
   );
-}
-
-function attachDrawingHandlers(canvas, existingStrokes) {
-  let drawing = false;
-  let points = [];
-  const ctx = canvas.getContext("2d");
-
-  function getPos(e) {
-    const rect = canvas.getBoundingClientRect();
-    const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
-    const y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
-    return [x / rect.width, y / rect.height];
-  }
-
-  function start(e) {
-    if (state.hasSubmittedThisRound || drawing) return;
-    e.preventDefault();
-    drawing = true;
-    points = [getPos(e)];
-    // Attach move/end only while the stroke is in progress, so re-renders don't accumulate window listeners.
-    window.addEventListener("mousemove", move);
-    window.addEventListener("mouseup", end);
-    redraw();
-  }
-  function move(e) {
-    if (!drawing) return;
-    e.preventDefault();
-    points.push(getPos(e));
-    redraw();
-  }
-  async function end(e) {
-    if (!drawing) return;
-    e.preventDefault();
-    drawing = false;
-    window.removeEventListener("mousemove", move);
-    window.removeEventListener("mouseup", end);
-    if (points.length === 0) return;
-    const stroke = {
-      points,
-      color: state.selectedColor,
-      width: state.selectedWidth,
-      playerId: state.myId,
-      playerName: state.myName,
-    };
-    state.hasSubmittedThisRound = true;
-    try {
-      await submitStroke(stroke);
-    } catch (err) {
-      state.error = "Failed to submit stroke — check connection";
-      state.hasSubmittedThisRound = false;
-      render();
-    }
-  }
-
-  function redraw() {
-    const { width, height } = setupCanvasResolution(canvas);
-    ctx.clearRect(0, 0, width, height);
-    for (const s of existingStrokes) drawStrokeOnCanvas(ctx, s, width, height);
-    if (points.length > 0) {
-      drawStrokeOnCanvas(ctx, {
-        points, color: state.selectedColor, width: state.selectedWidth
-      }, width, height);
-    }
-  }
-
-  canvas.addEventListener("mousedown", start);
-  canvas.addEventListener("touchstart", start, { passive: false });
-  canvas.addEventListener("touchmove", move, { passive: false });
-  canvas.addEventListener("touchend", end, { passive: false });
-  canvas.addEventListener("touchcancel", end, { passive: false });
 }
 
 // =================================================================
