@@ -1,0 +1,1134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Stroke Relay</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #fafafa;
+    --card: #ffffff;
+    --border: #e4e4e7;
+    --border-strong: #d4d4d8;
+    --text: #18181b;
+    --text-muted: #71717a;
+    --text-faint: #a1a1aa;
+    --accent: #059669;
+    --accent-hover: #047857;
+    --accent-soft: #ecfdf5;
+    --accent-soft-2: #d1fae5;
+    --danger: #dc2626;
+    --warning: #f59e0b;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+    --shadow: 0 4px 14px rgba(0,0,0,0.06);
+    --radius: 10px;
+    --radius-lg: 16px;
+  }
+  html, body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  button { font-family: inherit; cursor: pointer; border: none; background: none; font-size: inherit; color: inherit; }
+  button:disabled { cursor: not-allowed; }
+  input { font-family: inherit; font-size: inherit; color: inherit; }
+
+  .app { max-width: 920px; margin: 0 auto; padding: 32px 20px 80px; }
+  .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; }
+  .logo { font-weight: 700; font-size: 18px; letter-spacing: -0.01em; display: flex; align-items: center; gap: 8px; }
+  .logo-mark { width: 22px; height: 22px; display: inline-flex; }
+  .header-right { font-size: 13px; color: var(--text-muted); }
+
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 32px; box-shadow: var(--shadow-sm); }
+  .card-tight { padding: 20px; }
+
+  .btn { display: inline-flex; align-items: center; justify-content: center; height: 42px; padding: 0 18px; border-radius: 8px; font-weight: 500; transition: background 0.15s, transform 0.05s, border-color 0.15s; white-space: nowrap; }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+  .btn-primary:active:not(:disabled) { transform: scale(0.98); }
+  .btn-primary:disabled { background: var(--text-faint); }
+  .btn-secondary { background: white; border: 1px solid var(--border-strong); color: var(--text); }
+  .btn-secondary:hover:not(:disabled) { background: var(--bg); }
+  .btn-ghost { color: var(--text-muted); padding: 0 10px; height: 34px; font-size: 13px; }
+  .btn-ghost:hover { color: var(--text); }
+  .btn-danger { background: white; border: 1px solid var(--border-strong); color: var(--danger); }
+  .btn-danger:hover:not(:disabled) { background: #fef2f2; }
+  .btn-block { width: 100%; }
+  .btn-lg { height: 48px; padding: 0 24px; font-size: 16px; }
+
+  .input { width: 100%; height: 44px; padding: 0 14px; border: 1px solid var(--border-strong); border-radius: 8px; background: white; outline: none; transition: border-color 0.15s, box-shadow 0.15s; }
+  .input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft-2); }
+  .input.upper { text-transform: uppercase; letter-spacing: 0.1em; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+  .label { display: block; font-weight: 500; font-size: 12px; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.06em; }
+
+  .row { display: flex; gap: 12px; align-items: center; }
+  .stack { display: flex; flex-direction: column; gap: 12px; }
+  .stack-lg { display: flex; flex-direction: column; gap: 24px; }
+  .divider { height: 1px; background: var(--border); margin: 8px 0; }
+
+  /* Landing */
+  .landing { text-align: center; padding: 56px 32px 48px; }
+  .landing-mark { width: 64px; height: 64px; margin: 0 auto 20px; color: var(--accent); }
+  .landing h1 { font-size: 38px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 12px; }
+  .landing-sub { color: var(--text-muted); margin-bottom: 36px; font-size: 16px; max-width: 460px; margin-left: auto; margin-right: auto; }
+  .landing-options { max-width: 380px; margin: 0 auto; text-align: left; }
+  .landing-or { text-align: center; color: var(--text-faint); font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; margin: 16px 0; }
+  .landing-rules { margin-top: 48px; padding-top: 32px; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 14px; max-width: 520px; margin-left: auto; margin-right: auto; text-align: left; }
+  .landing-rules h3 { font-size: 13px; color: var(--text); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 12px; }
+  .landing-rules ol { padding-left: 20px; }
+  .landing-rules li { margin-bottom: 6px; }
+
+  /* Lobby */
+  .lobby-header { text-align: center; margin-bottom: 32px; }
+  .lobby-header h2 { font-size: 28px; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 6px; }
+  .lobby-header p { color: var(--text-muted); }
+  .lobby-code-display { background: linear-gradient(135deg, var(--accent-soft) 0%, white 100%); border: 1px solid var(--accent-soft-2); border-radius: var(--radius); padding: 24px; margin-bottom: 24px; text-align: center; }
+  .lobby-code-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px; }
+  .lobby-code-value { font-family: 'JetBrains Mono', monospace; font-size: 40px; font-weight: 600; letter-spacing: 0.18em; color: var(--accent); }
+  .lobby-code-hint { font-size: 13px; color: var(--text-muted); margin-top: 12px; }
+
+  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .section-header h3 { font-size: 13px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 500; }
+  .section-header .count { font-size: 13px; color: var(--text-faint); font-variant-numeric: tabular-nums; }
+
+  .player-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
+  .player-chip { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: white; border: 1px solid var(--border); border-radius: 8px; font-weight: 500; }
+  .player-chip.you { background: var(--accent-soft); border-color: var(--accent-soft-2); }
+  .player-dot { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: white; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .player-host-tag { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-left: auto; }
+
+  /* Drawing screen */
+  .game-top { display: flex; gap: 12px; align-items: stretch; margin-bottom: 16px; }
+  .word-card { flex: 1; background: white; border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; display: flex; flex-direction: column; justify-content: center; }
+  .word-card .label { margin-bottom: 2px; }
+  .word-card .word { font-size: 26px; font-weight: 700; letter-spacing: -0.01em; }
+  .meta-card { background: white; border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; text-align: right; min-width: 140px; }
+  .meta-card .label { margin-bottom: 2px; text-align: right; }
+  .meta-card .meta-value { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  .canvas-wrap { position: relative; background: white; border: 1px solid var(--border); border-radius: var(--radius-lg); aspect-ratio: 4/3; overflow: hidden; }
+  canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+  canvas.drawable { cursor: crosshair; }
+  .canvas-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+  .canvas-overlay-content { background: rgba(255,255,255,0.95); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 24px; text-align: center; box-shadow: var(--shadow); pointer-events: auto; }
+  .canvas-overlay-content .status { font-weight: 600; margin-bottom: 4px; }
+  .canvas-overlay-content .sub { font-size: 13px; color: var(--text-muted); }
+  .canvas-corner-hint { position: absolute; top: 12px; right: 12px; font-size: 11px; color: var(--text-faint); background: white; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border); text-transform: uppercase; letter-spacing: 0.06em; }
+
+  .tools { display: flex; align-items: center; justify-content: center; gap: 20px; flex-wrap: wrap; margin-top: 16px; }
+  .tool-group { display: flex; align-items: center; gap: 6px; }
+  .tool-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; margin-right: 4px; }
+  .swatch { width: 30px; height: 30px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 0 1px var(--border-strong); cursor: pointer; transition: transform 0.1s; padding: 0; }
+  .swatch:hover { transform: scale(1.1); }
+  .swatch.selected { box-shadow: 0 0 0 2px var(--text); }
+  .width-opt { width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--border-strong); background: white; display: inline-flex; align-items: center; justify-content: center; padding: 0; }
+  .width-opt:hover { border-color: var(--text-muted); }
+  .width-opt.selected { border-color: var(--text); }
+  .width-opt .dot { background: var(--text); border-radius: 50%; }
+
+  .waiting-list-wrap { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); text-align: center; }
+  .waiting-list-wrap .label { margin-bottom: 10px; }
+  .waiting-list { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+  .waiting-chip { padding: 5px 12px; background: white; border: 1px solid var(--border); border-radius: 999px; font-size: 13px; color: var(--text-muted); }
+  .waiting-chip.done { background: var(--accent-soft); border-color: var(--accent-soft-2); color: var(--accent-hover); }
+  .waiting-chip.done::before { content: '✓ '; }
+
+  .host-controls { margin-top: 20px; padding: 14px; background: white; border: 1px dashed var(--border-strong); border-radius: var(--radius); }
+  .host-controls .label { margin-bottom: 8px; }
+  .host-controls-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+  /* Reveal */
+  .reveal-stage { text-align: center; }
+  .reveal-word-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px; }
+  .reveal-word { font-size: 32px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 6px; }
+  .reveal-meta { font-size: 14px; color: var(--text-muted); margin-bottom: 20px; }
+  .reveal-canvas-wrap { position: relative; background: white; border: 1px solid var(--border); border-radius: var(--radius-lg); aspect-ratio: 4/3; max-width: 720px; margin: 0 auto; overflow: hidden; }
+  .reveal-attribution { margin-top: 16px; min-height: 24px; font-size: 15px; color: var(--text); font-weight: 500; transition: opacity 0.2s; }
+  .reveal-attribution-name { color: var(--accent); font-weight: 600; }
+  .reveal-controls { display: flex; justify-content: center; gap: 12px; margin-top: 24px; flex-wrap: wrap; }
+  .reveal-thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; margin-top: 32px; }
+  .reveal-thumb { cursor: pointer; background: white; border: 1px solid var(--border); border-radius: var(--radius); padding: 8px; display: flex; flex-direction: column; gap: 6px; transition: border-color 0.15s, box-shadow 0.15s; }
+  .reveal-thumb:hover { border-color: var(--accent); }
+  .reveal-thumb.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .reveal-thumb-canvas { aspect-ratio: 4/3; background: var(--bg); border-radius: 6px; }
+  .reveal-thumb-label { font-size: 11px; color: var(--text-muted); text-align: center; padding: 2px 0; font-weight: 500; }
+
+  .banner { padding: 12px 16px; border-radius: 8px; font-size: 14px; margin-bottom: 16px; }
+  .banner-info { background: var(--accent-soft); border: 1px solid var(--accent-soft-2); color: var(--accent-hover); }
+  .banner-warning { background: #fef3c7; border: 1px solid #fde68a; color: #78350f; }
+  .banner-error { background: #fee2e2; border: 1px solid #fca5a5; color: #7f1d1d; }
+
+  .setup-warning { max-width: 640px; margin: 60px auto; padding: 32px; background: white; border: 1px solid var(--warning); border-radius: var(--radius-lg); }
+  .setup-warning h2 { color: var(--warning); margin-bottom: 12px; }
+  .setup-warning code { background: var(--bg); padding: 2px 6px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 13px; }
+
+  @media (max-width: 600px) {
+    .landing h1 { font-size: 28px; }
+    .word-card .word { font-size: 20px; }
+    .tools { gap: 14px; }
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script type="module">
+// =================================================================
+// FIREBASE CONFIG — paste yours here. See README.md for setup.
+// =================================================================
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyAw4MG-iX8lXHv_d6V0iZz24v2_17OaKg0",
+  authDomain: "drawing-relay-a0761.firebaseapp.com",
+  databaseURL: "https://drawing-relay-a0761-default-rtdb.firebaseio.com",
+  projectId: "drawing-relay-a0761",
+  storageBucket: "drawing-relay-a0761.firebasestorage.app",
+  messagingSenderId: "725678544972",
+  appId: "1:725678544972:web:085872b46f33bd7078bce9"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+// =================================================================
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import {
+  getDatabase, ref, set, get, update, onValue, onDisconnect, runTransaction, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+const FB_CONFIGURED = !firebaseConfig.apiKey.startsWith("PASTE");
+let db = null;
+if (FB_CONFIGURED) {
+  const fb = initializeApp(firebaseConfig);
+  db = getDatabase(fb);
+}
+
+// =================================================================
+// WORD BANK
+// =================================================================
+const WORD_BANK = [
+  // Design / tech
+  "wireframe","gradient","sticky note","whiteboard","sketch","figma","component","button",
+  "modal","tooltip","mascot","avatar","404 page","empty state","loading spinner","dark mode",
+  "hamburger menu","mood board","style guide","persona","kanban board","standup","retro","sprint",
+  "deadline","feedback","bug","pixel","designer","prototype",
+  // Animals
+  "cat","dog","penguin","shark","octopus","snail","crab","flamingo","sloth","unicorn",
+  "dragon","dinosaur","butterfly","bee","frog","turtle","hedgehog","narwhal","platypus","axolotl",
+  // Food
+  "banana","pizza","sushi","taco","donut","avocado","cupcake","ramen","burger","ice cream",
+  "pickle","pineapple","croissant","watermelon",
+  // Objects / scenes
+  "umbrella","rocket","robot","castle","lighthouse","sailboat","helicopter","submarine",
+  "telescope","volcano","rainbow","tornado","campfire","treasure chest","crown","wizard hat",
+  "magic wand","crystal ball","hot air balloon","ferris wheel","windmill","cactus","mailbox",
+  // Concepts (harder)
+  "silence","gravity","monday","jet lag","imposter syndrome","recursion","procrastination",
+  "deja vu","writers block","caffeine crash"
+];
+
+// =================================================================
+// STATE
+// =================================================================
+const state = {
+  screen: "landing",
+  myId: null,
+  myName: null,
+  roomCode: null,
+  isHost: false,
+  room: null,
+  selectedColor: "#18181b",
+  selectedWidth: 4,
+  hasSubmittedThisRound: false,
+  isDrawing: false,
+  currentStroke: null,
+  reveal: { drawingIdx: 0, animationStep: 0, animating: false },
+  error: null,
+};
+
+// Persist player identity in this tab so refresh doesn't kick you out
+function loadSession() {
+  try {
+    const s = JSON.parse(sessionStorage.getItem("stroke-relay") || "{}");
+    if (s.myId) state.myId = s.myId;
+    if (s.myName) state.myName = s.myName;
+    if (s.roomCode) state.roomCode = s.roomCode;
+  } catch {}
+}
+function saveSession() {
+  sessionStorage.setItem("stroke-relay", JSON.stringify({
+    myId: state.myId, myName: state.myName, roomCode: state.roomCode,
+  }));
+}
+function clearSession() {
+  sessionStorage.removeItem("stroke-relay");
+}
+
+// =================================================================
+// UTILITIES
+// =================================================================
+function uid() { return Math.random().toString(36).substring(2, 10) + Date.now().toString(36).slice(-4); }
+function genRoomCode() {
+  const letters = "ABCDEFGHJKLMNPQRSTUVWXYZ"; // no I/O for legibility
+  let c = "";
+  for (let i = 0; i < 5; i++) c += letters[Math.floor(Math.random() * letters.length)];
+  return c;
+}
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+function el(tag, props = {}, ...children) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (k === "class") node.className = v;
+    else if (k === "style" && typeof v === "object") Object.assign(node.style, v);
+    else if (k.startsWith("on") && typeof v === "function") node.addEventListener(k.slice(2).toLowerCase(), v);
+    else if (k === "html") node.innerHTML = v;
+    else if (v !== null && v !== undefined && v !== false) node.setAttribute(k, v);
+  }
+  for (const child of children.flat()) {
+    if (child === null || child === undefined || child === false) continue;
+    node.appendChild(typeof child === "string" ? document.createTextNode(child) : child);
+  }
+  return node;
+}
+
+// =================================================================
+// FIREBASE OPS
+// =================================================================
+function roomRef(code) { return ref(db, `rooms/${code}`); }
+
+async function createRoom(name) {
+  const code = await findFreshCode();
+  const myId = uid();
+  const room = {
+    status: "lobby",
+    hostId: myId,
+    createdAt: serverTimestamp(),
+    players: {
+      [myId]: { id: myId, name, joinOrder: 0 }
+    },
+    round: 0,
+  };
+  await set(roomRef(code), room);
+  state.myId = myId;
+  state.myName = name;
+  state.roomCode = code;
+  state.isHost = true;
+  saveSession();
+  watchRoom(code);
+  setupPresence(code, myId);
+}
+
+async function findFreshCode() {
+  for (let i = 0; i < 20; i++) {
+    const c = genRoomCode();
+    const snap = await get(roomRef(c));
+    if (!snap.exists()) return c;
+  }
+  throw new Error("Couldn't find an open room code");
+}
+
+async function joinRoom(code, name) {
+  code = code.toUpperCase().trim();
+  const snap = await get(roomRef(code));
+  if (!snap.exists()) throw new Error("No room with that code");
+  const room = snap.val();
+  if (room.status !== "lobby") throw new Error("This room's game is already underway");
+  const playerCount = Object.keys(room.players || {}).length;
+  if (playerCount >= 20) throw new Error("Room is full (max 20)");
+  const myId = uid();
+  await update(roomRef(code), {
+    [`players/${myId}`]: { id: myId, name, joinOrder: playerCount }
+  });
+  state.myId = myId;
+  state.myName = name;
+  state.roomCode = code;
+  state.isHost = room.hostId === myId;
+  saveSession();
+  watchRoom(code);
+  setupPresence(code, myId);
+}
+
+let roomUnsub = null;
+function watchRoom(code) {
+  if (roomUnsub) roomUnsub();
+  roomUnsub = onValue(roomRef(code), (snap) => {
+    const v = snap.val();
+    if (!v) {
+      state.room = null;
+      state.error = "Room closed";
+      state.screen = "landing";
+      clearSession();
+      render();
+      return;
+    }
+    state.room = v;
+    state.isHost = v.hostId === state.myId;
+    // Map status to screen
+    if (v.status === "lobby") state.screen = "lobby";
+    else if (v.status === "playing") {
+      state.screen = "drawing";
+      // Reset stroke submission flag when round changes
+      const myDrawingId = currentDrawingForPlayer(v, state.myId);
+      if (myDrawingId) {
+        const d = v.drawings[myDrawingId];
+        const strokesNow = (d.strokes || []).length;
+        state.hasSubmittedThisRound = strokesNow > (v.round || 0);
+      }
+    }
+    else if (v.status === "reveal") {
+      if (state.screen !== "reveal") {
+        state.reveal = { drawingIdx: 0, animationStep: 0, animating: false };
+      }
+      state.screen = "reveal";
+    }
+    render();
+    // Auto-advance round if all strokes for this round are in (any client can try; transaction makes it safe)
+    if (v.status === "playing") tryAdvanceRound(code);
+  });
+}
+
+function setupPresence(code, myId) {
+  // Soft presence: clean up player from lobby if they disconnect before the game starts
+  const presenceRef = ref(db, `rooms/${code}/players/${myId}/connected`);
+  set(presenceRef, true);
+  onDisconnect(presenceRef).set(false);
+}
+
+async function startGame(words) {
+  const code = state.roomCode;
+  const snap = await get(roomRef(code));
+  const room = snap.val();
+  const players = Object.values(room.players).sort((a, b) => a.joinOrder - b.joinOrder);
+  if (players.length < 2) throw new Error("Need at least 2 players");
+  const wordPool = shuffle(words);
+  const drawings = {};
+  players.forEach((p, i) => {
+    const did = "d_" + i;
+    drawings[did] = {
+      id: did,
+      word: wordPool[i % wordPool.length],
+      ownerId: p.id,
+      ownerName: p.name,
+      ownerIdx: i,
+      strokes: [],
+    };
+  });
+  // Normalize player ordering (rewrite joinOrder so it's contiguous 0..N-1)
+  const playersOut = {};
+  players.forEach((p, i) => { playersOut[p.id] = { ...p, joinOrder: i }; });
+  await update(roomRef(code), {
+    status: "playing",
+    round: 0,
+    players: playersOut,
+    drawings,
+    totalRounds: players.length,
+  });
+}
+
+async function submitStroke(stroke) {
+  const code = state.roomCode;
+  const room = state.room;
+  const drawingId = currentDrawingForPlayer(room, state.myId);
+  if (!drawingId) return;
+  const did = drawingId;
+  const path = `rooms/${code}/drawings/${did}/strokes`;
+  await runTransaction(ref(db, path), (strokes) => {
+    strokes = strokes || [];
+    // Don't double-submit if a stroke for this round already exists
+    if (strokes.length > (room.round || 0)) return strokes;
+    strokes.push(stroke);
+    return strokes;
+  });
+  state.hasSubmittedThisRound = true;
+  render();
+}
+
+async function tryAdvanceRound(code) {
+  const room = state.room;
+  if (!room || room.status !== "playing") return;
+  const round = room.round || 0;
+  const totalRounds = room.totalRounds;
+  const drawings = Object.values(room.drawings || {});
+  if (drawings.length === 0) return;
+  const allInForRound = drawings.every(d => (d.strokes || []).length >= round + 1);
+  if (!allInForRound) return;
+  // Use transaction on the round counter so only one client wins
+  await runTransaction(ref(db, `rooms/${code}/round`), (curr) => {
+    if (curr !== round) return; // someone else moved it
+    return round + 1;
+  });
+  // If new round equals totalRounds, set status to reveal
+  if (round + 1 >= totalRounds) {
+    await update(roomRef(code), { status: "reveal" });
+  }
+}
+
+async function hostSkipPlayer(playerId) {
+  // Submit an empty stroke on that player's behalf so the round can advance
+  const code = state.roomCode;
+  const drawingId = currentDrawingForPlayer(state.room, playerId);
+  if (!drawingId) return;
+  const path = `rooms/${code}/drawings/${drawingId}/strokes`;
+  const round = state.room.round || 0;
+  await runTransaction(ref(db, path), (strokes) => {
+    strokes = strokes || [];
+    if (strokes.length > round) return strokes;
+    strokes.push({ points: [], color: "#000", width: 0, playerId, playerName: state.room.players[playerId]?.name || "?", skipped: true });
+    return strokes;
+  });
+}
+
+async function hostNewGame() {
+  // Back to lobby with same players
+  const code = state.roomCode;
+  const snap = await get(roomRef(code));
+  const room = snap.val();
+  const playersOut = {};
+  Object.values(room.players).forEach((p, i) => { playersOut[p.id] = { id: p.id, name: p.name, joinOrder: i }; });
+  await set(roomRef(code), {
+    status: "lobby",
+    hostId: room.hostId,
+    createdAt: room.createdAt,
+    players: playersOut,
+    round: 0,
+  });
+}
+
+async function leaveRoom() {
+  const code = state.roomCode;
+  const myId = state.myId;
+  if (code && myId && db) {
+    try {
+      // Only allow leaving while in lobby (mid-game leaving would break the rotation)
+      const snap = await get(roomRef(code));
+      const room = snap.val();
+      if (room && room.status === "lobby") {
+        await set(ref(db, `rooms/${code}/players/${myId}`), null);
+      }
+    } catch {}
+  }
+  if (roomUnsub) { roomUnsub(); roomUnsub = null; }
+  state.roomCode = null;
+  state.room = null;
+  state.isHost = false;
+  state.myId = null;
+  state.myName = null;
+  state.screen = "landing";
+  clearSession();
+  render();
+}
+
+// =================================================================
+// GAME LOGIC
+// =================================================================
+// In round R, player at joinOrder i draws on drawing originally owned by (i + R) mod N.
+// (So in round 0, everyone starts their own. The drawing your word started on returns to
+// you after rotating through everyone.)
+function currentDrawingForPlayer(room, playerId) {
+  if (!room || !room.drawings) return null;
+  const players = playersByOrder(room);
+  const N = players.length;
+  if (N === 0) return null;
+  const myIdx = players.findIndex(p => p.id === playerId);
+  if (myIdx < 0) return null;
+  const round = room.round || 0;
+  if (round >= N) return null;
+  const drawingOwnerIdx = (myIdx + round) % N;
+  return "d_" + drawingOwnerIdx;
+}
+function playersByOrder(room) {
+  return Object.values(room.players || {}).sort((a, b) => a.joinOrder - b.joinOrder);
+}
+
+// =================================================================
+// CANVAS RENDERING
+// =================================================================
+function setupCanvasResolution(canvas) {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  const ctx = canvas.getContext("2d");
+  ctx.scale(dpr, dpr);
+  return { ctx, width: rect.width, height: rect.height };
+}
+
+function clearCanvas(canvas) {
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+function drawStrokeOnCanvas(ctx, stroke, canvasW, canvasH) {
+  if (!stroke || !stroke.points || stroke.points.length === 0) return;
+  if (stroke.skipped) return;
+  const pts = stroke.points.map(p => [p[0] * canvasW, p[1] * canvasH]);
+  ctx.strokeStyle = stroke.color || "#18181b";
+  ctx.fillStyle = stroke.color || "#18181b";
+  const lineW = (stroke.width || 4) * (canvasW / 800);
+  ctx.lineWidth = lineW;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  if (pts.length === 1) {
+    ctx.beginPath();
+    ctx.arc(pts[0][0], pts[0][1], lineW / 2, 0, Math.PI * 2);
+    ctx.fill();
+    return;
+  }
+  ctx.beginPath();
+  ctx.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 1; i < pts.length - 1; i++) {
+    const midX = (pts[i][0] + pts[i + 1][0]) / 2;
+    const midY = (pts[i][1] + pts[i + 1][1]) / 2;
+    ctx.quadraticCurveTo(pts[i][0], pts[i][1], midX, midY);
+  }
+  ctx.lineTo(pts[pts.length - 1][0], pts[pts.length - 1][1]);
+  ctx.stroke();
+}
+
+function renderCanvasStrokes(canvas, strokes, upToCount) {
+  const { ctx, width, height } = setupCanvasResolution(canvas);
+  ctx.clearRect(0, 0, width, height);
+  const max = upToCount === undefined ? strokes.length : upToCount;
+  for (let i = 0; i < Math.min(max, strokes.length); i++) {
+    drawStrokeOnCanvas(ctx, strokes[i], width, height);
+  }
+  return { ctx, width, height };
+}
+
+// =================================================================
+// RENDER ROOT
+// =================================================================
+const root = document.getElementById("app");
+
+function render() {
+  if (!FB_CONFIGURED) {
+    root.innerHTML = "";
+    root.appendChild(renderSetupWarning());
+    return;
+  }
+  root.innerHTML = "";
+  const app = el("div", { class: "app" });
+  app.appendChild(renderHeader());
+  if (state.error) {
+    const banner = el("div", { class: "banner banner-error" }, state.error);
+    app.appendChild(banner);
+    setTimeout(() => { state.error = null; const b = document.querySelector('.banner-error'); if (b) b.remove(); }, 4000);
+  }
+  let body;
+  switch (state.screen) {
+    case "landing": body = renderLanding(); break;
+    case "lobby": body = renderLobby(); break;
+    case "drawing": body = renderDrawing(); break;
+    case "reveal": body = renderReveal(); break;
+    default: body = renderLanding();
+  }
+  app.appendChild(body);
+  root.appendChild(app);
+}
+
+function renderHeader() {
+  const right = state.roomCode
+    ? el("div", { class: "row" },
+        el("span", { class: "header-right" }, `Room ${state.roomCode}`),
+        el("button", { class: "btn btn-ghost", onClick: () => {
+          if (confirm("Leave this room?")) leaveRoom();
+        }}, "Leave")
+      )
+    : el("div", { class: "header-right" }, "");
+  return el("div", { class: "header" },
+    el("div", { class: "logo" },
+      el("span", { class: "logo-mark", html: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent); width: 22px; height: 22px;"><path d="M3 17c3 -6 6 -6 9 0s6 6 9 0"/></svg>` }),
+      "Stroke Relay"
+    ),
+    right
+  );
+}
+
+function renderSetupWarning() {
+  return el("div", { class: "setup-warning" },
+    el("h2", null, "Firebase not configured"),
+    el("p", null, "Open ", el("code", null, "index.html"), " and paste your Firebase config into the ", el("code", null, "firebaseConfig"), " object near the top of the ", el("code", null, "<script>"), " tag."),
+    el("p", { style: { marginTop: "12px" }}, "See ", el("code", null, "README.md"), " for step-by-step setup instructions.")
+  );
+}
+
+// =================================================================
+// LANDING
+// =================================================================
+function renderLanding() {
+  const nameInput = el("input", { class: "input", placeholder: "Your name", value: state.myName || "", maxlength: "20" });
+  const codeInput = el("input", { class: "input upper", placeholder: "ROOM", maxlength: "5" });
+  const tryJoin = async () => {
+    const name = nameInput.value.trim();
+    const code = codeInput.value.trim().toUpperCase();
+    if (!name) { state.error = "Enter your name"; render(); return; }
+    if (!code || code.length < 4) { state.error = "Enter a room code"; render(); return; }
+    try { await joinRoom(code, name); }
+    catch (e) { state.error = e.message; render(); }
+  };
+  const tryCreate = async () => {
+    const name = nameInput.value.trim();
+    if (!name) { state.error = "Enter your name"; render(); return; }
+    try { await createRoom(name); }
+    catch (e) { state.error = e.message; render(); }
+  };
+
+  return el("div", { class: "card landing" },
+    el("div", { class: "landing-mark", html: `<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" style="width:64px;height:64px;"><path d="M6 40c10 -22 22 -22 32 0s22 22 32 0" transform="translate(-3,0)"/></svg>` }),
+    el("h1", null, "Stroke Relay"),
+    el("p", { class: "landing-sub" }, "Each player gets a secret word and adds exactly one stroke before the canvas passes to the next person. Hilarity ensues."),
+    el("div", { class: "landing-options stack-lg" },
+      el("div", { class: "stack" },
+        el("label", { class: "label" }, "Your name"),
+        nameInput,
+      ),
+      el("button", { class: "btn btn-primary btn-block btn-lg", onClick: tryCreate }, "Create a new room"),
+      el("div", { class: "landing-or" }, "or join existing"),
+      el("div", { class: "stack" },
+        el("label", { class: "label" }, "Room code"),
+        codeInput,
+      ),
+      el("button", { class: "btn btn-secondary btn-block btn-lg", onClick: tryJoin }, "Join room"),
+    ),
+    el("div", { class: "landing-rules" },
+      el("h3", null, "How it works"),
+      el("ol", null,
+        el("li", null, "Everyone joins a room with the same code."),
+        el("li", null, "Each player gets a secret word and a blank canvas."),
+        el("li", null, "You draw exactly one stroke (mousedown → drag → mouseup). That's it — it's locked."),
+        el("li", null, "Once everyone has drawn, canvases pass to the next person, who adds their stroke for that same word."),
+        el("li", null, "After your drawing has rotated through the whole room, we replay everyone's masterpieces."),
+      )
+    ),
+  );
+}
+
+// =================================================================
+// LOBBY
+// =================================================================
+function renderLobby() {
+  const room = state.room;
+  if (!room) return el("div", null, "Loading...");
+  const players = playersByOrder(room);
+  const isHost = state.isHost;
+  return el("div", { class: "stack-lg" },
+    el("div", { class: "card" },
+      el("div", { class: "lobby-header" },
+        el("h2", null, "Waiting for players"),
+        el("p", null, "Share the room code below. Game starts when host is ready."),
+      ),
+      el("div", { class: "lobby-code-display" },
+        el("div", { class: "lobby-code-label" }, "Room code"),
+        el("div", { class: "lobby-code-value" }, state.roomCode),
+        el("div", { class: "lobby-code-hint" }, "Tell your team to open this URL and join with this code."),
+      ),
+      el("div", { class: "section-header" },
+        el("h3", null, "Players"),
+        el("div", { class: "count" }, `${players.length} joined`),
+      ),
+      el("div", { class: "player-list" },
+        ...players.map(p => el("div", { class: "player-chip" + (p.id === state.myId ? " you" : "") },
+          el("span", { class: "player-dot" }, (p.name || "?")[0].toUpperCase()),
+          el("span", null, p.name + (p.id === state.myId ? " (you)" : "")),
+          room.hostId === p.id ? el("span", { class: "player-host-tag" }, "Host") : null,
+        )),
+      ),
+      el("div", { style: { marginTop: "32px", textAlign: "center" }},
+        isHost
+          ? el("button", {
+              class: "btn btn-primary btn-lg",
+              disabled: players.length < 2,
+              onClick: async () => {
+                try { await startGame(WORD_BANK); }
+                catch (e) { state.error = e.message; render(); }
+              }
+            }, players.length < 2 ? "Need at least 2 players" : `Start game (${players.length} players, ${players.length} rounds)`)
+          : el("div", { style: { color: "var(--text-muted)" }}, "Waiting for host to start..."),
+      ),
+    ),
+  );
+}
+
+// =================================================================
+// DRAWING SCREEN
+// =================================================================
+function renderDrawing() {
+  const room = state.room;
+  if (!room) return el("div", null, "Loading...");
+  const players = playersByOrder(room);
+  const N = players.length;
+  const round = room.round || 0;
+  const totalRounds = room.totalRounds || N;
+
+  const myDrawingId = currentDrawingForPlayer(room, state.myId);
+  const myDrawing = myDrawingId ? room.drawings[myDrawingId] : null;
+  if (!myDrawing) return el("div", null, "Loading drawing...");
+
+  // Determine if this player has submitted their stroke for this round
+  const strokesNow = (myDrawing.strokes || []).length;
+  const submitted = strokesNow > round;
+
+  // Who else is still drawing?
+  const stillDrawing = players.filter(p => {
+    if (p.id === state.myId) return false;
+    const theirDid = currentDrawingForPlayer(room, p.id);
+    if (!theirDid) return false;
+    const theirStrokes = (room.drawings[theirDid].strokes || []).length;
+    return theirStrokes <= round;
+  });
+  const doneOthers = players.filter(p => {
+    if (p.id === state.myId) return false;
+    const theirDid = currentDrawingForPlayer(room, p.id);
+    if (!theirDid) return false;
+    const theirStrokes = (room.drawings[theirDid].strokes || []).length;
+    return theirStrokes > round;
+  });
+
+  const wordCard = el("div", { class: "word-card" },
+    el("div", { class: "label" }, "Your word"),
+    el("div", { class: "word" }, myDrawing.word),
+  );
+  const metaCard = el("div", { class: "meta-card" },
+    el("div", { class: "label" }, "Round"),
+    el("div", { class: "meta-value" }, `${round + 1} / ${totalRounds}`),
+  );
+
+  // Canvas
+  const canvas = el("canvas", { class: submitted ? "" : "drawable" });
+  const canvasWrap = el("div", { class: "canvas-wrap" }, canvas);
+  if (round === 0) {
+    canvasWrap.appendChild(el("div", { class: "canvas-corner-hint" }, "Blank canvas — first stroke!"));
+  } else {
+    canvasWrap.appendChild(el("div", { class: "canvas-corner-hint" }, `${strokesNow} stroke${strokesNow === 1 ? "" : "s"} so far`));
+  }
+
+  // Set up canvas after it's in the DOM
+  requestAnimationFrame(() => {
+    const existingStrokes = myDrawing.strokes || [];
+    renderCanvasStrokes(canvas, existingStrokes);
+    if (!submitted) attachDrawingHandlers(canvas, existingStrokes);
+  });
+
+  // Overlay for submitted state
+  if (submitted) {
+    canvasWrap.appendChild(el("div", { class: "canvas-overlay" },
+      el("div", { class: "canvas-overlay-content" },
+        el("div", { class: "status" }, "Stroke locked in"),
+        el("div", { class: "sub" }, stillDrawing.length > 0
+          ? `Waiting for ${stillDrawing.length} other${stillDrawing.length === 1 ? "" : "s"}...`
+          : "Advancing to next round..."),
+      ),
+    ));
+  }
+
+  // Tools
+  const tools = submitted ? null : renderTools();
+
+  // Waiting / progress strip
+  const waitingStrip = el("div", { class: "waiting-list-wrap" },
+    el("div", { class: "label" }, `Round ${round + 1} progress`),
+    el("div", { class: "waiting-list" },
+      ...[...doneOthers.map(p => el("span", { class: "waiting-chip done" }, p.name)),
+         ...(submitted ? [] : [el("span", { class: "waiting-chip done" }, state.myName + " (you)")]),
+         ...stillDrawing.map(p => el("span", { class: "waiting-chip" }, p.name)),
+         ...(submitted ? [] : [])
+        ]
+    ),
+  );
+
+  // Host controls (skip stuck players)
+  let hostBox = null;
+  if (state.isHost && stillDrawing.length > 0) {
+    hostBox = el("div", { class: "host-controls" },
+      el("div", { class: "label" }, "Host: skip a stuck player"),
+      el("div", { class: "host-controls-row" },
+        ...stillDrawing.map(p => el("button", {
+          class: "btn btn-danger", style: { height: "32px", fontSize: "13px" },
+          onClick: async () => {
+            if (confirm(`Skip ${p.name}'s stroke this round? Their stroke for this drawing will be left blank.`)) {
+              try { await hostSkipPlayer(p.id); } catch (e) { state.error = e.message; render(); }
+            }
+          }
+        }, `Skip ${p.name}`)),
+      ),
+    );
+  }
+
+  return el("div", { class: "stack-lg" },
+    el("div", { class: "game-top" }, wordCard, metaCard),
+    canvasWrap,
+    tools,
+    waitingStrip,
+    hostBox,
+  );
+}
+
+function renderTools() {
+  const colors = ["#18181b", "#dc2626", "#f59e0b", "#059669", "#0284c7", "#7c3aed", "#db2777", "#92400e"];
+  const widths = [2, 4, 7, 12];
+
+  const colorEls = colors.map(c => el("button", {
+    class: "swatch" + (state.selectedColor === c ? " selected" : ""),
+    style: { background: c },
+    title: c,
+    onClick: () => { state.selectedColor = c; render(); }
+  }));
+  const widthEls = widths.map(w => {
+    const dot = el("span", { class: "dot", style: { width: w + "px", height: w + "px" }});
+    return el("button", {
+      class: "width-opt" + (state.selectedWidth === w ? " selected" : ""),
+      title: w + "px",
+      onClick: () => { state.selectedWidth = w; render(); }
+    }, dot);
+  });
+
+  return el("div", { class: "tools" },
+    el("div", { class: "tool-group" },
+      el("span", { class: "tool-label" }, "Color"),
+      ...colorEls
+    ),
+    el("div", { class: "tool-group" },
+      el("span", { class: "tool-label" }, "Size"),
+      ...widthEls
+    ),
+  );
+}
+
+function attachDrawingHandlers(canvas, existingStrokes) {
+  let drawing = false;
+  let points = [];
+  const ctx = canvas.getContext("2d");
+
+  function getPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+    const y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+    return [x / rect.width, y / rect.height];
+  }
+
+  function start(e) {
+    if (state.hasSubmittedThisRound || drawing) return;
+    e.preventDefault();
+    drawing = true;
+    points = [getPos(e)];
+    // Attach move/end only while the stroke is in progress, so re-renders don't accumulate window listeners.
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", end);
+    redraw();
+  }
+  function move(e) {
+    if (!drawing) return;
+    e.preventDefault();
+    points.push(getPos(e));
+    redraw();
+  }
+  async function end(e) {
+    if (!drawing) return;
+    e.preventDefault();
+    drawing = false;
+    window.removeEventListener("mousemove", move);
+    window.removeEventListener("mouseup", end);
+    if (points.length === 0) return;
+    const stroke = {
+      points,
+      color: state.selectedColor,
+      width: state.selectedWidth,
+      playerId: state.myId,
+      playerName: state.myName,
+    };
+    state.hasSubmittedThisRound = true;
+    try {
+      await submitStroke(stroke);
+    } catch (err) {
+      state.error = "Failed to submit stroke — check connection";
+      state.hasSubmittedThisRound = false;
+      render();
+    }
+  }
+
+  function redraw() {
+    const { width, height } = setupCanvasResolution(canvas);
+    ctx.clearRect(0, 0, width, height);
+    for (const s of existingStrokes) drawStrokeOnCanvas(ctx, s, width, height);
+    if (points.length > 0) {
+      drawStrokeOnCanvas(ctx, {
+        points, color: state.selectedColor, width: state.selectedWidth
+      }, width, height);
+    }
+  }
+
+  canvas.addEventListener("mousedown", start);
+  canvas.addEventListener("touchstart", start, { passive: false });
+  canvas.addEventListener("touchmove", move, { passive: false });
+  canvas.addEventListener("touchend", end, { passive: false });
+  canvas.addEventListener("touchcancel", end, { passive: false });
+}
+
+// =================================================================
+// REVEAL
+// =================================================================
+let revealAnimTimer = null;
+
+function renderReveal() {
+  const room = state.room;
+  if (!room) return el("div", null, "Loading...");
+  const players = playersByOrder(room);
+  const drawings = Object.values(room.drawings || {}).sort((a, b) => a.ownerIdx - b.ownerIdx);
+  if (drawings.length === 0) return el("div", null, "No drawings to show.");
+  const idx = Math.min(state.reveal.drawingIdx, drawings.length - 1);
+  const drawing = drawings[idx];
+  const strokeCount = state.reveal.animationStep;
+  const totalStrokes = (drawing.strokes || []).length;
+
+  const wordLabel = el("div", { class: "reveal-word-label" }, `Drawing ${idx + 1} of ${drawings.length}`);
+  const wordMain = el("div", { class: "reveal-word" }, drawing.word);
+  const ownerMeta = el("div", { class: "reveal-meta" }, "Originally started by ", el("strong", null, drawing.ownerName));
+
+  const canvas = el("canvas", null);
+  const canvasWrap = el("div", { class: "reveal-canvas-wrap" }, canvas);
+
+  // Attribution under canvas
+  let attrText = null;
+  if (strokeCount === 0) {
+    attrText = "Blank canvas...";
+  } else if (strokeCount <= totalStrokes) {
+    const s = drawing.strokes[strokeCount - 1];
+    if (s && s.skipped) {
+      attrText = el("span", null, el("span", { class: "reveal-attribution-name" }, s.playerName), " skipped their turn");
+    } else if (s) {
+      attrText = el("span", null, el("span", { class: "reveal-attribution-name" }, s.playerName), ` added stroke ${strokeCount}`);
+    }
+  }
+  const attr = el("div", { class: "reveal-attribution" }, attrText);
+
+  // Controls
+  const isLastStrokeOfDrawing = strokeCount >= totalStrokes;
+  const isLastDrawing = idx >= drawings.length - 1;
+  const stepBtn = el("button", {
+    class: "btn btn-primary",
+    onClick: () => {
+      if (!isLastStrokeOfDrawing) {
+        state.reveal.animationStep++;
+      } else if (!isLastDrawing) {
+        state.reveal.drawingIdx++;
+        state.reveal.animationStep = 0;
+      }
+      render();
+    },
+    disabled: isLastStrokeOfDrawing && isLastDrawing,
+  }, isLastStrokeOfDrawing ? (isLastDrawing ? "End" : "Next drawing →") : "Next stroke →");
+
+  const replayBtn = el("button", {
+    class: "btn btn-secondary",
+    onClick: () => { state.reveal.animationStep = 0; render(); },
+  }, "Replay");
+
+  const autoBtn = el("button", {
+    class: "btn btn-secondary",
+    onClick: () => {
+      if (revealAnimTimer) { clearInterval(revealAnimTimer); revealAnimTimer = null; render(); return; }
+      revealAnimTimer = setInterval(() => {
+        if (state.reveal.animationStep < (drawings[state.reveal.drawingIdx].strokes || []).length) {
+          state.reveal.animationStep++;
+        } else if (state.reveal.drawingIdx < drawings.length - 1) {
+          state.reveal.drawingIdx++;
+          state.reveal.animationStep = 0;
+        } else {
+          clearInterval(revealAnimTimer); revealAnimTimer = null;
+        }
+        render();
+      }, 900);
+    },
+  }, revealAnimTimer ? "Pause autoplay" : "Autoplay");
+
+  const newGameBtn = state.isHost
+    ? el("button", { class: "btn btn-secondary", onClick: async () => {
+        if (revealAnimTimer) { clearInterval(revealAnimTimer); revealAnimTimer = null; }
+        try { await hostNewGame(); } catch (e) { state.error = e.message; render(); }
+      }}, "New game (same room)")
+    : null;
+
+  // Thumbnails strip
+  const thumbsEls = drawings.map((d, i) => {
+    const thumbCanvas = el("canvas", { class: "reveal-thumb-canvas" });
+    requestAnimationFrame(() => renderCanvasStrokes(thumbCanvas, d.strokes || []));
+    return el("div", {
+      class: "reveal-thumb" + (i === idx ? " active" : ""),
+      onClick: () => {
+        if (revealAnimTimer) { clearInterval(revealAnimTimer); revealAnimTimer = null; }
+        state.reveal.drawingIdx = i;
+        state.reveal.animationStep = (drawings[i].strokes || []).length;
+        render();
+      }
+    },
+      thumbCanvas,
+      el("div", { class: "reveal-thumb-label" }, d.word),
+    );
+  });
+
+  // Schedule canvas render
+  requestAnimationFrame(() => renderCanvasStrokes(canvas, drawing.strokes || [], strokeCount));
+
+  return el("div", { class: "stack-lg" },
+    el("div", { class: "card reveal-stage" },
+      wordLabel,
+      wordMain,
+      ownerMeta,
+      canvasWrap,
+      attr,
+      el("div", { class: "reveal-controls" }, replayBtn, autoBtn, stepBtn, newGameBtn),
+    ),
+    el("div", { class: "reveal-thumbs" }, ...thumbsEls),
+  );
+}
+
+// =================================================================
+// INIT
+// =================================================================
+loadSession();
+if (FB_CONFIGURED && state.myId && state.roomCode) {
+  // Try to resume existing session
+  get(roomRef(state.roomCode)).then(snap => {
+    if (snap.exists() && snap.val().players && snap.val().players[state.myId]) {
+      watchRoom(state.roomCode);
+      setupPresence(state.roomCode, state.myId);
+    } else {
+      clearSession();
+      state.myId = null; state.myName = null; state.roomCode = null;
+      render();
+    }
+  }).catch(() => {
+    clearSession();
+    state.myId = null; state.myName = null; state.roomCode = null;
+    render();
+  });
+}
+render();
+
+// Re-render on resize so the active canvas re-draws at new resolution
+window.addEventListener("resize", () => {
+  if (state.screen === "drawing" || state.screen === "reveal") render();
+});
+</script>
+</body>
+</html>
