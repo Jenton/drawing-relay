@@ -497,7 +497,11 @@ function watchRoom(code) {
     }
     else if (v.status === "reveal") {
       if (state.screen !== "reveal") {
-        state.reveal = { drawingIdx: 0, animationStep: 0, animating: false };
+        const ds = Object.values(v.drawings || {}).sort((a, b) => a.ownerIdx - b.ownerIdx);
+        const firstTotal = ds[0] ? (ds[0].strokes || []).length : 0;
+        // hasStarted=false: showing the full picture as the initial reveal moment.
+        // First Next click switches to step-through mode starting from blank.
+        state.reveal = { drawingIdx: 0, animationStep: firstTotal, hasStarted: false };
       }
       state.screen = "reveal";
     }
@@ -958,6 +962,9 @@ function startTimerIfNeeded() {
   if (!drawSession || drawSession.startTime || drawSession.submitting) return;
   drawSession.startTime = Date.now();
   drawSession.timerHandle = setInterval(tickTimer, 80);
+  // Swap the timer card from "Timer starts on first stroke" to the live countdown
+  // so tickTimer can find the #timer-num / #timer-bar elements it updates.
+  render();
 }
 
 function tickTimer() {
@@ -1297,96 +1304,110 @@ function renderTools() {
 // =================================================================
 // REVEAL
 // =================================================================
-let revealAnimTimer = null;
-
 function renderReveal() {
   const room = state.room;
   if (!room) return el("div", null, "Loading...");
-  const players = playersByOrder(room);
   const drawings = Object.values(room.drawings || {}).sort((a, b) => a.ownerIdx - b.ownerIdx);
   if (drawings.length === 0) return el("div", null, "No drawings to show.");
-  const idx = Math.min(state.reveal.drawingIdx, drawings.length - 1);
+
+  // Bounds-safe access
+  const idx = Math.min(Math.max(0, state.reveal.drawingIdx), drawings.length - 1);
   const drawing = drawings[idx];
-  const strokeCount = state.reveal.animationStep;
   const totalStrokes = (drawing.strokes || []).length;
+  const hasStarted = !!state.reveal.hasStarted;
+  // Strokes displayed: full picture in initial state, otherwise the animation step.
+  const displayedStrokes = hasStarted ? state.reveal.animationStep : totalStrokes;
 
   const wordLabel = el("div", { class: "reveal-word-label" }, `Drawing ${idx + 1} of ${drawings.length}`);
   const wordMain = el("div", { class: "reveal-word" }, drawing.word);
-  const ownerMeta = el("div", { class: "reveal-meta" }, `${totalStrokes} stroke${totalStrokes === 1 ? "" : "s"}`);
+  const ownerMeta = el("div", { class: "reveal-meta" },
+    hasStarted ? `Stroke ${displayedStrokes} of ${totalStrokes}` : "Full reveal"
+  );
 
   const canvas = el("canvas", null);
   const canvasWrap = el("div", { class: "reveal-canvas-wrap" }, canvas);
 
   // Attribution under canvas
   let attrText = null;
-  if (strokeCount === 0) {
+  if (!hasStarted) {
+    attrText = "Click Next to see how it was built";
+  } else if (displayedStrokes === 0) {
     attrText = "Blank canvas...";
-  } else if (strokeCount <= totalStrokes) {
-    const s = drawing.strokes[strokeCount - 1];
+  } else {
+    const s = drawing.strokes[displayedStrokes - 1];
     if (s && s.skipped) {
       attrText = el("span", null, el("span", { class: "reveal-attribution-name" }, s.playerName), " skipped their turn");
     } else if (s) {
-      attrText = el("span", null, el("span", { class: "reveal-attribution-name" }, s.playerName), ` added stroke ${strokeCount}`);
+      attrText = el("span", null, el("span", { class: "reveal-attribution-name" }, s.playerName), ` added stroke ${displayedStrokes}`);
     }
   }
   const attr = el("div", { class: "reveal-attribution" }, attrText);
 
-  // Controls
-  const isLastStrokeOfDrawing = strokeCount >= totalStrokes;
-  const isLastDrawing = idx >= drawings.length - 1;
-  const stepBtn = el("button", {
-    class: "btn btn-primary",
-    onClick: () => {
-      if (!isLastStrokeOfDrawing) {
-        state.reveal.animationStep++;
-      } else if (!isLastDrawing) {
-        state.reveal.drawingIdx++;
-        state.reveal.animationStep = 0;
+  // Navigation logic
+  const atFirst = !hasStarted && idx === 0;
+  const atLast = hasStarted && displayedStrokes === totalStrokes && idx === drawings.length - 1;
+
+  const goNext = () => {
+    if (!hasStarted) {
+      // From full reveal, start animating from blank
+      state.reveal.hasStarted = true;
+      state.reveal.animationStep = 0;
+    } else if (state.reveal.animationStep < totalStrokes) {
+      state.reveal.animationStep++;
+    } else if (idx < drawings.length - 1) {
+      // Reached full picture via animation — advance to next drawing's full reveal
+      state.reveal.drawingIdx = idx + 1;
+      state.reveal.hasStarted = false;
+      state.reveal.animationStep = (drawings[idx + 1].strokes || []).length;
+    }
+    render();
+  };
+
+  const goPrev = () => {
+    if (!hasStarted) {
+      // Go back to previous drawing's full reveal
+      if (idx > 0) {
+        state.reveal.drawingIdx = idx - 1;
+        state.reveal.hasStarted = false;
+        state.reveal.animationStep = (drawings[idx - 1].strokes || []).length;
       }
-      render();
-    },
-    disabled: isLastStrokeOfDrawing && isLastDrawing,
-  }, isLastStrokeOfDrawing ? (isLastDrawing ? "End" : "Next drawing →") : "Next stroke →");
+    } else if (state.reveal.animationStep > 0) {
+      state.reveal.animationStep--;
+    } else {
+      // From blank canvas, return to full reveal of same drawing
+      state.reveal.hasStarted = false;
+      state.reveal.animationStep = totalStrokes;
+    }
+    render();
+  };
 
-  const replayBtn = el("button", {
+  const prevBtn = el("button", {
     class: "btn btn-secondary",
-    onClick: () => { state.reveal.animationStep = 0; render(); },
-  }, "Replay");
+    onClick: goPrev,
+    disabled: atFirst,
+  }, "← Previous");
 
-  const autoBtn = el("button", {
-    class: "btn btn-secondary",
-    onClick: () => {
-      if (revealAnimTimer) { clearInterval(revealAnimTimer); revealAnimTimer = null; render(); return; }
-      revealAnimTimer = setInterval(() => {
-        if (state.reveal.animationStep < (drawings[state.reveal.drawingIdx].strokes || []).length) {
-          state.reveal.animationStep++;
-        } else if (state.reveal.drawingIdx < drawings.length - 1) {
-          state.reveal.drawingIdx++;
-          state.reveal.animationStep = 0;
-        } else {
-          clearInterval(revealAnimTimer); revealAnimTimer = null;
-        }
-        render();
-      }, 900);
-    },
-  }, revealAnimTimer ? "Pause autoplay" : "Autoplay");
+  const nextBtn = el("button", {
+    class: "btn btn-primary",
+    onClick: goNext,
+    disabled: atLast,
+  }, atLast ? "End" : "Next →");
 
   const newGameBtn = state.isHost
     ? el("button", { class: "btn btn-secondary", onClick: async () => {
-        if (revealAnimTimer) { clearInterval(revealAnimTimer); revealAnimTimer = null; }
         try { await hostNewGame(); } catch (e) { state.error = e.message; render(); }
       }}, "New game (same room)")
     : null;
 
-  // Thumbnails strip
+  // Thumbnails strip — click jumps to that drawing's full reveal
   const thumbsEls = drawings.map((d, i) => {
     const thumbCanvas = el("canvas", { class: "reveal-thumb-canvas" });
     requestAnimationFrame(() => renderCanvasStrokes(thumbCanvas, d.strokes || []));
     return el("div", {
       class: "reveal-thumb" + (i === idx ? " active" : ""),
       onClick: () => {
-        if (revealAnimTimer) { clearInterval(revealAnimTimer); revealAnimTimer = null; }
         state.reveal.drawingIdx = i;
+        state.reveal.hasStarted = false;
         state.reveal.animationStep = (drawings[i].strokes || []).length;
         render();
       }
@@ -1396,8 +1417,8 @@ function renderReveal() {
     );
   });
 
-  // Schedule canvas render
-  requestAnimationFrame(() => renderCanvasStrokes(canvas, drawing.strokes || [], strokeCount));
+  // Paint the main reveal canvas
+  requestAnimationFrame(() => renderCanvasStrokes(canvas, drawing.strokes || [], displayedStrokes));
 
   return el("div", { class: "stack-lg" },
     el("div", { class: "card reveal-stage" },
@@ -1406,7 +1427,7 @@ function renderReveal() {
       ownerMeta,
       canvasWrap,
       attr,
-      el("div", { class: "reveal-controls" }, replayBtn, autoBtn, stepBtn, newGameBtn),
+      el("div", { class: "reveal-controls" }, prevBtn, nextBtn, newGameBtn),
     ),
     el("div", { class: "reveal-thumbs" }, ...thumbsEls),
   );
