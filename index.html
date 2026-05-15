@@ -130,6 +130,29 @@
   .done-btn { min-width: 240px; height: 52px; font-size: 17px; font-weight: 600; }
   .draw-prompt { text-align: center; color: var(--text-muted); padding: 8px 0; font-size: 14px; }
   .draw-prompt strong { color: var(--text); }
+  .timeup-banner { text-align: center; padding: 10px 0; color: var(--danger); font-weight: 600; font-size: 14px; }
+
+  .game-main { display: flex; gap: 16px; align-items: flex-start; }
+  .game-canvas-area { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+  .game-side { width: 230px; flex-shrink: 0; }
+  .side-panel { background: white; border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; position: sticky; top: 20px; }
+  .side-panel h4 { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 500; margin-bottom: 12px; }
+  .side-panel-summary { font-size: 12px; color: var(--text-muted); margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+  .side-panel-summary strong { color: var(--text); font-weight: 600; }
+  .status-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; font-size: 14px; border-bottom: 1px dashed var(--border); }
+  .status-row:last-child { border-bottom: none; }
+  .status-row.done { color: var(--text); }
+  .status-row.pending { color: var(--text-muted); }
+  .status-row .status-icon { width: 18px; height: 18px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 11px; }
+  .status-row.done .status-icon { background: var(--accent); color: white; }
+  .status-row.pending .status-icon { background: var(--bg); border: 1px solid var(--border-strong); }
+  .status-row .status-name { flex: 1; }
+  .status-row .you-tag { font-size: 10px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.06em; }
+  @media (max-width: 720px) {
+    .game-main { flex-direction: column; }
+    .game-side { width: 100%; }
+    .side-panel { position: static; }
+  }
 
   .canvas-wrap { position: relative; background: white; border: 1px solid var(--border); border-radius: var(--radius-lg); aspect-ratio: 4/3; overflow: hidden; }
   canvas { display: block; width: 100%; height: 100%; touch-action: none; }
@@ -830,11 +853,16 @@ function initDrawSession(key) {
     strokeColor: state.selectedColor,
     strokeWidth: state.selectedWidth,
     finishedStroke: null,
-    startTime: Date.now(),
+    startTime: null,      // null until the user begins their stroke
     timerHandle: null,
     submitting: false,
   };
   attachStrokeHandlers(canvas);
+}
+
+function startTimerIfNeeded() {
+  if (!drawSession || drawSession.startTime || drawSession.submitting) return;
+  drawSession.startTime = Date.now();
   drawSession.timerHandle = setInterval(tickTimer, 80);
 }
 
@@ -852,11 +880,13 @@ function tickTimer() {
     barEl.style.width = (remaining / ROUND_SECONDS * 100) + "%";
     barEl.classList.toggle("urgent", remaining <= 1);
   }
-  if (remaining <= 0 && !drawSession.submitting) {
-    drawSession.submitting = true;
+  if (remaining <= 0 && !drawSession.timeUp) {
+    drawSession.timeUp = true;
     clearInterval(drawSession.timerHandle);
     drawSession.timerHandle = null;
-    handleTimerExpire();
+    // Force-end any in-progress stroke (so they keep what they had drawn)
+    if (drawSession.isDrawing) finishStrokeLocally();
+    render();
   }
 }
 
@@ -874,10 +904,16 @@ function finishStrokeLocally() {
   drawSession.points = [];
 }
 
-async function handleTimerExpire() {
-  // Force-end any in-progress stroke
-  if (drawSession && drawSession.isDrawing) finishStrokeLocally();
-  const stroke = (drawSession && drawSession.finishedStroke) || {
+async function clickDone() {
+  if (!drawSession || drawSession.submitting) return;
+  // Need either a finished stroke or to have allowed time-up skipping
+  if (!drawSession.finishedStroke && !drawSession.timeUp) return;
+  drawSession.submitting = true;
+  if (drawSession.timerHandle) {
+    clearInterval(drawSession.timerHandle);
+    drawSession.timerHandle = null;
+  }
+  const stroke = drawSession.finishedStroke || {
     points: [],
     color: state.selectedColor,
     width: state.selectedWidth,
@@ -885,18 +921,8 @@ async function handleTimerExpire() {
     playerName: state.myName,
     skipped: true,
   };
+  render();  // immediately show "Submitting..." state
   try { await submitStroke(stroke); }
-  catch (err) { state.error = "Failed to submit stroke"; render(); }
-}
-
-async function clickDone() {
-  if (!drawSession || !drawSession.finishedStroke || drawSession.submitting) return;
-  drawSession.submitting = true;
-  if (drawSession.timerHandle) {
-    clearInterval(drawSession.timerHandle);
-    drawSession.timerHandle = null;
-  }
-  try { await submitStroke(drawSession.finishedStroke); }
   catch (err) { state.error = "Failed to submit stroke"; drawSession.submitting = false; render(); }
 }
 
@@ -908,8 +934,9 @@ function attachStrokeHandlers(canvas) {
     return [x / rect.width, y / rect.height];
   }
   function start(e) {
-    if (!drawSession || drawSession.finishedStroke || drawSession.isDrawing || drawSession.submitting) return;
+    if (!drawSession || drawSession.finishedStroke || drawSession.isDrawing || drawSession.submitting || drawSession.timeUp) return;
     e.preventDefault();
+    startTimerIfNeeded();
     drawSession.isDrawing = true;
     drawSession.strokeColor = state.selectedColor;
     drawSession.strokeWidth = state.selectedWidth;
@@ -1010,14 +1037,23 @@ function renderDrawing() {
       el("div", { class: "label" }, "Time"),
       el("div", { class: "timer-value" }, "—"),
     );
-  } else {
-    const initialRemaining = drawSession ? Math.max(0, ROUND_SECONDS - (Date.now() - drawSession.startTime) / 1000) : ROUND_SECONDS;
+  } else if (drawSession && drawSession.startTime) {
+    const initialRemaining = Math.max(0, ROUND_SECONDS - (Date.now() - drawSession.startTime) / 1000);
     const isUrgent = initialRemaining <= 1;
     timerCard = el("div", { class: "timer-card", id: "timer-card" },
       el("div", { class: "label" }, "Time left"),
       el("div", { class: "timer-value" + (isUrgent ? " urgent" : ""), id: "timer-num" }, initialRemaining.toFixed(1) + "s"),
       el("div", { class: "timer-bar" },
         el("div", { class: "timer-bar-fill" + (isUrgent ? " urgent" : ""), id: "timer-bar", style: { width: (initialRemaining / ROUND_SECONDS * 100) + "%" }})
+      ),
+    );
+  } else {
+    // Timer hasn't started yet — show full 3s, ready state
+    timerCard = el("div", { class: "timer-card", id: "timer-card" },
+      el("div", { class: "label" }, "Timer starts on first stroke"),
+      el("div", { class: "timer-value" }, ROUND_SECONDS.toFixed(1) + "s"),
+      el("div", { class: "timer-bar" },
+        el("div", { class: "timer-bar-fill", style: { width: "100%" }})
       ),
     );
   }
@@ -1046,37 +1082,58 @@ function renderDrawing() {
     requestAnimationFrame(() => redrawSession());
   }
 
-  // Tools (only before stroke is drawn)
-  const showTools = !submitted && drawSession && !drawSession.finishedStroke;
+  // Tools (only before stroke is drawn AND before time's up)
+  const showTools = !submitted && drawSession && !drawSession.finishedStroke && !drawSession.timeUp;
   const tools = showTools ? renderTools() : null;
 
-  // Done button or draw prompt
+  // Done button / draw prompt / time-up banner
   let actionRow = null;
+  let timeUpBanner = null;
   if (!submitted && drawSession) {
-    if (drawSession.finishedStroke) {
+    if (drawSession.timeUp) {
+      timeUpBanner = el("div", { class: "timeup-banner" },
+        drawSession.finishedStroke
+          ? "Time's up — click Done to lock in your stroke"
+          : "Time's up — you didn't draw. Click Done to skip your turn."
+      );
+    }
+    if (drawSession.finishedStroke || drawSession.timeUp) {
+      const label = drawSession.submitting
+        ? "Submitting..."
+        : (drawSession.finishedStroke ? "Done — submit my stroke" : "Done — skip my turn");
       actionRow = el("div", { class: "done-row" },
         el("button", {
           class: "btn btn-primary done-btn",
           disabled: drawSession.submitting,
           onClick: clickDone,
-        }, drawSession.submitting ? "Submitting..." : "Done — submit my stroke"),
+        }, label),
       );
     } else {
       actionRow = el("div", { class: "draw-prompt" },
-        el("strong", null, "Click and drag"), " to make your one stroke. You have ", el("strong", null, ROUND_SECONDS + " seconds"), "."
+        el("strong", null, "Click and drag"), " to make your one stroke. The ", el("strong", null, ROUND_SECONDS + "-second timer"), " starts when you do."
       );
     }
   }
 
-  // Player progress strip
-  const waitingStrip = el("div", { class: "waiting-list-wrap" },
-    el("div", { class: "label" }, `Round ${round + 1} progress`),
-    el("div", { class: "waiting-list" },
-      ...doneOthers.map(p => el("span", { class: "waiting-chip done" }, p.name)),
-      ...(submitted ? [el("span", { class: "waiting-chip done" }, state.myName + " (you)")] : []),
-      ...stillDrawing.map(p => el("span", { class: "waiting-chip" }, p.name)),
-      ...(!submitted ? [el("span", { class: "waiting-chip" }, state.myName + " (you)")] : []),
+  // Side panel: who's submitted and who's still working
+  const allPlayersRows = players.map(p => {
+    const did = currentDrawingForPlayer(room, p.id);
+    const theirStrokes = did ? (room.drawings[did].strokes || []).length : 0;
+    const isDone = theirStrokes > round;
+    const isMe = p.id === state.myId;
+    return el("div", { class: `status-row ${isDone ? "done" : "pending"}` },
+      el("span", { class: "status-icon" }, isDone ? "✓" : ""),
+      el("span", { class: "status-name" }, p.name),
+      isMe ? el("span", { class: "you-tag" }, "you") : null,
+    );
+  });
+  const doneCount = doneOthers.length + (submitted ? 1 : 0);
+  const sidePanel = el("div", { class: "side-panel" },
+    el("h4", null, `Round ${round + 1} of ${totalRounds}`),
+    el("div", { class: "side-panel-summary" },
+      el("strong", null, `${doneCount} / ${players.length}`), " players done",
     ),
+    ...allPlayersRows,
   );
 
   // Host controls
@@ -1099,10 +1156,15 @@ function renderDrawing() {
 
   return el("div", { class: "stack-lg" },
     el("div", { class: "game-top" }, wordCard, timerCard),
-    canvasWrap,
-    tools,
-    actionRow,
-    waitingStrip,
+    el("div", { class: "game-main" },
+      el("div", { class: "game-canvas-area" },
+        canvasWrap,
+        tools,
+        timeUpBanner,
+        actionRow,
+      ),
+      el("div", { class: "game-side" }, sidePanel),
+    ),
     hostBox,
   );
 }
@@ -1156,7 +1218,7 @@ function renderReveal() {
 
   const wordLabel = el("div", { class: "reveal-word-label" }, `Drawing ${idx + 1} of ${drawings.length}`);
   const wordMain = el("div", { class: "reveal-word" }, drawing.word);
-  const ownerMeta = el("div", { class: "reveal-meta" }, "Originally started by ", el("strong", null, drawing.ownerName));
+  const ownerMeta = el("div", { class: "reveal-meta" }, `${totalStrokes} stroke${totalStrokes === 1 ? "" : "s"}`);
 
   const canvas = el("canvas", null);
   const canvasWrap = el("div", { class: "reveal-canvas-wrap" }, canvas);
