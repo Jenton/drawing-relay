@@ -263,10 +263,16 @@
   .timer-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
   .timer-row .label { margin-bottom: 0; }
 
-  .lobby-host-config { background: white; border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .lobby-host-config { background: white; border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .lobby-host-config:last-of-type { margin-bottom: 24px; }
   .lobby-host-config .config-label { font-size: 13px; font-weight: 500; color: var(--text); }
-  .lobby-host-config .config-hint { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .lobby-host-config .config-hint { font-size: 12px; color: var(--text-muted); margin-top: 2px; max-width: 360px; }
   .lobby-host-readonly { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--text); }
+
+  .mode-toggle { display: inline-flex; background: var(--bg); border: 1px solid var(--border-strong); border-radius: 8px; padding: 3px; gap: 2px; }
+  .mode-toggle button { padding: 7px 14px; border-radius: 6px; font-size: 13px; font-weight: 500; color: var(--text-muted); background: transparent; border: 0; cursor: pointer; transition: background 0.15s, color 0.15s; white-space: nowrap; }
+  .mode-toggle button:hover:not(.active) { color: var(--text); }
+  .mode-toggle button.active { background: white; color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
 
   /* Reveal */
   .reveal-stage { text-align: center; }
@@ -443,6 +449,7 @@ async function createRoom(name) {
     },
     round: 0,
     roundSeconds: 3,
+    strokeMode: STROKE_MODE_ONE,
   };
   await set(roomRef(code), room);
   state.myId = myId;
@@ -632,6 +639,7 @@ async function hostNewGame() {
     players: playersOut,
     round: 0,
     roundSeconds: room.roundSeconds || 3,
+    strokeMode: room.strokeMode || STROKE_MODE_ONE,
   });
 }
 
@@ -699,13 +707,12 @@ function clearCanvas(canvas) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 }
 
-function drawStrokeOnCanvas(ctx, stroke, canvasW, canvasH) {
-  if (!stroke || !stroke.points || stroke.points.length === 0) return;
-  if (stroke.skipped) return;
-  const pts = stroke.points.map(p => [p[0] * canvasW, p[1] * canvasH]);
-  ctx.strokeStyle = stroke.color || "#18181b";
-  ctx.fillStyle = stroke.color || "#18181b";
-  const lineW = (stroke.width || 4) * (canvasW / 800);
+function drawPathOnCanvas(ctx, path, canvasW, canvasH) {
+  if (!path || !path.points || path.points.length === 0) return;
+  const pts = path.points.map(p => [p[0] * canvasW, p[1] * canvasH]);
+  ctx.strokeStyle = path.color || "#18181b";
+  ctx.fillStyle = path.color || "#18181b";
+  const lineW = (path.width || 4) * (canvasW / 800);
   ctx.lineWidth = lineW;
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
@@ -724,6 +731,18 @@ function drawStrokeOnCanvas(ctx, stroke, canvasW, canvasH) {
   }
   ctx.lineTo(pts[pts.length - 1][0], pts[pts.length - 1][1]);
   ctx.stroke();
+}
+
+// A "stroke" in Firebase is one player's full contribution for one round. In one-stroke
+// mode it has exactly one path; in time-based mode it can have many paths.
+function drawStrokeOnCanvas(ctx, stroke, canvasW, canvasH) {
+  if (!stroke || stroke.skipped) return;
+  if (Array.isArray(stroke.paths)) {
+    for (const p of stroke.paths) drawPathOnCanvas(ctx, p, canvasW, canvasH);
+  } else if (stroke.points) {
+    // Legacy single-path format
+    drawPathOnCanvas(ctx, stroke, canvasW, canvasH);
+  }
 }
 
 function renderCanvasStrokes(canvas, strokes, upToCount) {
@@ -918,11 +937,37 @@ function renderLobby() {
   const isHost = state.isHost;
   const currentSeconds = getRoundSeconds();
 
+  const currentMode = getStrokeMode();
+  const modeLabel = currentMode === STROKE_MODE_ONE ? "One stroke per turn" : "Draw freely within the timer";
+
+  const modeConfig = el("div", { class: "lobby-host-config" },
+    el("div", null,
+      el("div", { class: "config-label" }, "Game mode"),
+      el("div", { class: "config-hint" },
+        isHost
+          ? "One stroke locks on mouseup. Time-based lets you keep drawing until the timer runs out."
+          : "Set by host."
+      ),
+    ),
+    isHost
+      ? el("div", { class: "mode-toggle" },
+          el("button", {
+            class: currentMode === STROKE_MODE_ONE ? "active" : "",
+            onClick: () => setStrokeMode(STROKE_MODE_ONE),
+          }, "One stroke"),
+          el("button", {
+            class: currentMode === STROKE_MODE_TIME ? "active" : "",
+            onClick: () => setStrokeMode(STROKE_MODE_TIME),
+          }, "Time-based"),
+        )
+      : el("div", { class: "lobby-host-readonly" }, modeLabel),
+  );
+
   const timerConfig = el("div", { class: "lobby-host-config" },
     el("div", null,
-      el("div", { class: "config-label" }, "Time per stroke"),
+      el("div", { class: "config-label" }, "Time per turn"),
       el("div", { class: "config-hint" },
-        isHost ? "Each player has this long to draw their stroke. You can change it any time." : "Set by host."
+        isHost ? "How long each player has once they start drawing. Adjustable mid-game too." : "Set by host."
       ),
     ),
     isHost
@@ -941,6 +986,7 @@ function renderLobby() {
         el("div", { class: "lobby-code-value" }, state.roomCode),
         el("div", { class: "lobby-code-hint" }, "Tell your team to open this URL and join with this code."),
       ),
+      modeConfig,
       timerConfig,
       el("div", { class: "section-header" },
         el("h3", null, "Players"),
@@ -986,6 +1032,19 @@ async function setRoundSeconds(value) {
   await update(roomRef(state.roomCode), { roundSeconds: v });
 }
 
+// Game mode: "one-stroke" (player draws exactly one stroke; locks on mouseup) or
+// "time-based" (player can draw freely until the timer expires).
+const STROKE_MODE_ONE = "one-stroke";
+const STROKE_MODE_TIME = "time-based";
+function getStrokeMode() {
+  return (state.room && state.room.strokeMode) || STROKE_MODE_ONE;
+}
+async function setStrokeMode(mode) {
+  if (mode !== STROKE_MODE_ONE && mode !== STROKE_MODE_TIME) return;
+  if (!state.roomCode) return;
+  await update(roomRef(state.roomCode), { strokeMode: mode });
+}
+
 // drawSession persists across renders WITHIN the same (round, drawing) so that
 // re-renders triggered by other players' updates don't destroy the canvas
 // the user is actively drawing on.
@@ -1006,13 +1065,12 @@ function initDrawSession(key) {
   drawSession = {
     key,
     canvas,
+    paths: [],              // committed paths this round (1 in one-stroke mode, many in time-based)
+    inProgressPath: null,   // {points, color, width} of the active drag
     isDrawing: false,
-    points: [],
-    strokeColor: state.selectedColor,
-    strokeWidth: state.selectedWidth,
-    finishedStroke: null,
-    startTime: null,      // null until the user begins their stroke
+    startTime: null,        // null until the user begins their first stroke
     timerHandle: null,
+    timeUp: false,
     submitting: false,
   };
   attachStrokeHandlers(canvas);
@@ -1049,43 +1107,44 @@ function tickTimer() {
     drawSession.timeUp = true;
     clearInterval(drawSession.timerHandle);
     drawSession.timerHandle = null;
-    // Force-end any in-progress stroke (so they keep what they had drawn)
-    if (drawSession.isDrawing) finishStrokeLocally();
+    // Force-end any in-progress drag, committing what was drawn so far
+    if (drawSession.isDrawing) commitInProgressPath();
     render();
   }
 }
 
-function finishStrokeLocally() {
-  if (!drawSession || !drawSession.isDrawing) return;
+function commitInProgressPath() {
+  if (!drawSession) return;
   drawSession.isDrawing = false;
-  if (drawSession.points.length === 0) return;
-  drawSession.finishedStroke = {
-    points: [...drawSession.points],
-    color: drawSession.strokeColor,
-    width: drawSession.strokeWidth,
-    playerId: state.myId,
-    playerName: state.myName,
-  };
-  drawSession.points = [];
+  const path = drawSession.inProgressPath;
+  drawSession.inProgressPath = null;
+  if (path && path.points && path.points.length > 0) {
+    drawSession.paths.push(path);
+  }
 }
 
 async function clickDone() {
   if (!drawSession || drawSession.submitting) return;
-  // Need either a finished stroke or to have allowed time-up skipping
-  if (!drawSession.finishedStroke && !drawSession.timeUp) return;
+  const hasPaths = drawSession.paths.length > 0;
+  // Need to either have drawn something or be in time-up state (to skip)
+  if (!hasPaths && !drawSession.timeUp) return;
   drawSession.submitting = true;
   if (drawSession.timerHandle) {
     clearInterval(drawSession.timerHandle);
     drawSession.timerHandle = null;
   }
-  const stroke = drawSession.finishedStroke || {
-    points: [],
-    color: state.selectedColor,
-    width: state.selectedWidth,
-    playerId: state.myId,
-    playerName: state.myName,
-    skipped: true,
-  };
+  const stroke = hasPaths
+    ? {
+        paths: drawSession.paths,
+        playerId: state.myId,
+        playerName: state.myName,
+      }
+    : {
+        paths: [],
+        playerId: state.myId,
+        playerName: state.myName,
+        skipped: true,
+      };
   render();  // immediately show "Submitting..." state
   try { await submitStroke(stroke); }
   catch (err) { state.error = "Failed to submit stroke"; drawSession.submitting = false; render(); }
@@ -1098,22 +1157,30 @@ function attachStrokeHandlers(canvas) {
     const y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
     return [x / rect.width, y / rect.height];
   }
+  function canStartDrawing() {
+    if (!drawSession) return false;
+    if (drawSession.isDrawing || drawSession.submitting || drawSession.timeUp) return false;
+    if (getStrokeMode() === STROKE_MODE_ONE && drawSession.paths.length >= 1) return false;
+    return true;
+  }
   function start(e) {
-    if (!drawSession || drawSession.finishedStroke || drawSession.isDrawing || drawSession.submitting || drawSession.timeUp) return;
+    if (!canStartDrawing()) return;
     e.preventDefault();
     startTimerIfNeeded();
     drawSession.isDrawing = true;
-    drawSession.strokeColor = state.selectedColor;
-    drawSession.strokeWidth = state.selectedWidth;
-    drawSession.points = [getPos(e)];
+    drawSession.inProgressPath = {
+      points: [getPos(e)],
+      color: state.selectedColor,
+      width: state.selectedWidth,
+    };
     window.addEventListener("mousemove", move);
     window.addEventListener("mouseup", end);
     redrawSession();
   }
   function move(e) {
-    if (!drawSession || !drawSession.isDrawing) return;
+    if (!drawSession || !drawSession.isDrawing || !drawSession.inProgressPath) return;
     e.preventDefault();
-    drawSession.points.push(getPos(e));
+    drawSession.inProgressPath.points.push(getPos(e));
     redrawSession();
   }
   function end(e) {
@@ -1121,7 +1188,7 @@ function attachStrokeHandlers(canvas) {
     e.preventDefault();
     window.removeEventListener("mousemove", move);
     window.removeEventListener("mouseup", end);
-    finishStrokeLocally();
+    commitInProgressPath();
     redrawSession();
     render();
   }
@@ -1142,14 +1209,9 @@ function redrawSession() {
   const { ctx, width, height } = setupCanvasResolution(drawSession.canvas);
   ctx.clearRect(0, 0, width, height);
   for (const s of existing) drawStrokeOnCanvas(ctx, s, width, height);
-  if (drawSession.finishedStroke) {
-    drawStrokeOnCanvas(ctx, drawSession.finishedStroke, width, height);
-  } else if (drawSession.points.length > 0) {
-    drawStrokeOnCanvas(ctx, {
-      points: drawSession.points,
-      color: drawSession.strokeColor,
-      width: drawSession.strokeWidth,
-    }, width, height);
+  for (const p of drawSession.paths) drawPathOnCanvas(ctx, p, width, height);
+  if (drawSession.inProgressPath) {
+    drawPathOnCanvas(ctx, drawSession.inProgressPath, width, height);
   }
 }
 
@@ -1246,9 +1308,13 @@ function renderDrawing() {
     requestAnimationFrame(() => redrawSession());
   }
 
-  // Tools (only before stroke is drawn AND before time's up)
-  const showTools = !submitted && drawSession && !drawSession.finishedStroke && !drawSession.timeUp;
-  const tools = showTools ? renderTools() : null;
+  const mode = getStrokeMode();
+  const hasPaths = drawSession && drawSession.paths.length > 0;
+  const canDrawMore = !submitted && drawSession && !drawSession.timeUp &&
+    (mode === STROKE_MODE_TIME || drawSession.paths.length === 0);
+
+  // Tools visible whenever the player can still start a new stroke
+  const tools = canDrawMore ? renderTools() : null;
 
   // Done button / draw prompt / time-up banner
   let actionRow = null;
@@ -1256,15 +1322,15 @@ function renderDrawing() {
   if (!submitted && drawSession) {
     if (drawSession.timeUp) {
       timeUpBanner = el("div", { class: "timeup-banner" },
-        drawSession.finishedStroke
-          ? "Time's up — click Done to lock in your stroke"
+        hasPaths
+          ? "Time's up — click Done to lock in your drawing"
           : "Time's up — you didn't draw. Click Done to skip your turn."
       );
     }
-    if (drawSession.finishedStroke || drawSession.timeUp) {
+    if (hasPaths || drawSession.timeUp) {
       const label = drawSession.submitting
         ? "Submitting..."
-        : (drawSession.finishedStroke ? "Done — submit my stroke" : "Done — skip my turn");
+        : (hasPaths ? "Done — submit my drawing" : "Done — skip my turn");
       actionRow = el("div", { class: "done-row" },
         el("button", {
           class: "btn btn-primary done-btn",
@@ -1273,9 +1339,10 @@ function renderDrawing() {
         }, label),
       );
     } else {
-      actionRow = el("div", { class: "draw-prompt" },
-        el("strong", null, "Click and drag"), " to make your one stroke. The ", el("strong", null, getRoundSeconds() + "-second timer"), " starts when you do."
-      );
+      const promptText = mode === STROKE_MODE_ONE
+        ? [el("strong", null, "Click and drag"), " to make your one stroke. The ", el("strong", null, getRoundSeconds() + "-second timer"), " starts when you do."]
+        : [el("strong", null, "Click and drag"), " to draw — you can draw multiple strokes. You'll have ", el("strong", null, getRoundSeconds() + " seconds"), " once you start."];
+      actionRow = el("div", { class: "draw-prompt" }, ...promptText);
     }
   }
 
