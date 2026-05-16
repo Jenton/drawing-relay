@@ -200,6 +200,32 @@
   .draw-prompt strong { color: var(--text); }
   .timeup-banner { text-align: center; padding: 10px 0; color: var(--danger); font-weight: 600; font-size: 14px; }
 
+  .constraint-banner {
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 18px; margin-bottom: 12px;
+    background: linear-gradient(135deg, #fef3c7 0%, #fffbeb 100%);
+    border: 1px solid #fcd34d;
+    border-radius: var(--radius);
+  }
+  .constraint-banner .icon { font-size: 28px; line-height: 1; flex-shrink: 0; }
+  .constraint-banner .text { flex: 1; min-width: 0; }
+  .constraint-banner .name { font-weight: 600; font-size: 15px; color: #78350f; }
+  .constraint-banner .desc { font-size: 13px; color: #92400e; margin-top: 2px; }
+
+  .mode-chips { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .mode-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    height: 22px; padding: 0 9px;
+    border-radius: 999px;
+    font-size: 11px; font-weight: 500;
+    background: var(--bg); border: 1px solid var(--border);
+    color: var(--text);
+    white-space: nowrap;
+  }
+  .mode-chip.chaos { background: #fef3c7; border-color: #fcd34d; color: #78350f; }
+  .mode-chip-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+  .mode-chip.time .mode-chip-dot { background: #f59e0b; }
+
   .game-main { display: flex; gap: 16px; align-items: flex-start; }
   .game-canvas-area { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
   .game-side { width: 230px; flex-shrink: 0; }
@@ -450,6 +476,7 @@ async function createRoom(name) {
     round: 0,
     roundSeconds: 3,
     strokeMode: STROKE_MODE_ONE,
+    chaosMode: false,
   };
   await set(roomRef(code), room);
   state.myId = myId;
@@ -563,13 +590,17 @@ async function startGame(words) {
   // Normalize player ordering (rewrite joinOrder so it's contiguous 0..N-1)
   const playersOut = {};
   players.forEach((p, i) => { playersOut[p.id] = { ...p, joinOrder: i }; });
-  await update(roomRef(code), {
+  const updates = {
     status: "playing",
     round: 0,
     players: playersOut,
     drawings,
     totalRounds: players.length,
-  });
+  };
+  if (room.chaosMode) {
+    updates.constraints = generateConstraintAssignments(players, players.length);
+  }
+  await update(roomRef(code), updates);
 }
 
 async function submitStroke(stroke) {
@@ -640,6 +671,7 @@ async function hostNewGame() {
     round: 0,
     roundSeconds: room.roundSeconds || 3,
     strokeMode: room.strokeMode || STROKE_MODE_ONE,
+    chaosMode: !!room.chaosMode,
   });
 }
 
@@ -788,14 +820,32 @@ function render() {
 }
 
 function renderHeader() {
-  const right = state.roomCode
-    ? el("div", { class: "row" },
-        el("span", { class: "header-right" }, `Room ${state.roomCode}`),
-        el("button", { class: "btn btn-ghost", onClick: () => {
-          if (confirm("Leave this room?")) leaveRoom();
-        }}, "Leave")
-      )
-    : el("div", { class: "header-right" }, "");
+  let right;
+  if (state.roomCode && state.room) {
+    const mode = getStrokeMode();
+    const chaos = getChaosMode();
+    const modeChip = el("span", { class: "mode-chip" + (mode === STROKE_MODE_TIME ? " time" : "") },
+      el("span", { class: "mode-chip-dot" }),
+      mode === STROKE_MODE_TIME ? "Time-based" : "One stroke",
+    );
+    const chaosChip = chaos ? el("span", { class: "mode-chip chaos" }, "🌀 Chaos") : null;
+    right = el("div", { class: "row" },
+      el("span", { class: "header-right" }, `Room ${state.roomCode}`),
+      el("span", { class: "mode-chips" }, modeChip, chaosChip),
+      el("button", { class: "btn btn-ghost", onClick: () => {
+        if (confirm("Leave this room?")) leaveRoom();
+      }}, "Leave")
+    );
+  } else if (state.roomCode) {
+    right = el("div", { class: "row" },
+      el("span", { class: "header-right" }, `Room ${state.roomCode}`),
+      el("button", { class: "btn btn-ghost", onClick: () => {
+        if (confirm("Leave this room?")) leaveRoom();
+      }}, "Leave")
+    );
+  } else {
+    right = el("div", { class: "header-right" }, "");
+  }
   return el("div", { class: "header" },
     el("div", { class: "logo" },
       el("span", { class: "logo-mark", html: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent); width: 22px; height: 22px;"><path d="M3 17c3 -6 6 -6 9 0s6 6 9 0"/></svg>` }),
@@ -975,6 +1025,24 @@ function renderLobby() {
       : el("div", { class: "lobby-host-readonly" }, currentSeconds + "s"),
   );
 
+  const chaosOn = getChaosMode();
+  const chaosConfig = el("div", { class: "lobby-host-config" },
+    el("div", null,
+      el("div", { class: "config-label" }, "Chaos mode 🌀"),
+      el("div", { class: "config-hint" },
+        isHost
+          ? "Each player gets a random drawing handicap each round (mirror, trembling hand, locked color, and more). Pure chaos."
+          : (chaosOn ? "On — random handicaps each round." : "Off."),
+      ),
+    ),
+    isHost
+      ? el("div", { class: "mode-toggle" },
+          el("button", { class: chaosOn ? "" : "active", onClick: () => setChaosMode(false) }, "Off"),
+          el("button", { class: chaosOn ? "active" : "", onClick: () => setChaosMode(true) }, "On"),
+        )
+      : el("div", { class: "lobby-host-readonly" }, chaosOn ? "On" : "Off"),
+  );
+
   return el("div", { class: "stack-lg" },
     el("div", { class: "card" },
       el("div", { class: "lobby-header" },
@@ -988,6 +1056,7 @@ function renderLobby() {
       ),
       modeConfig,
       timerConfig,
+      chaosConfig,
       el("div", { class: "section-header" },
         el("h3", null, "Players"),
         el("div", { class: "count" }, `${players.length} joined`),
@@ -1043,6 +1112,49 @@ async function setStrokeMode(mode) {
   if (mode !== STROKE_MODE_ONE && mode !== STROKE_MODE_TIME) return;
   if (!state.roomCode) return;
   await update(roomRef(state.roomCode), { strokeMode: mode });
+}
+
+// Chaos mode: each player gets a random handicap each round.
+const CONSTRAINTS = [
+  { id: "heavy-hand",     icon: "✊", name: "Heavy hand",         desc: "Your brush is jumbo. No more, no less." },
+  { id: "hair-thin",      icon: "🧵", name: "Hair-thin",           desc: "Your brush is impossibly thin." },
+  { id: "wrong-color",    icon: "🎨", name: "Wrong color",          desc: "You don't get to pick the color." },
+  { id: "trembling",      icon: "🥶", name: "Trembling hand",      desc: "You can't keep your hand steady." },
+  { id: "mirror",         icon: "🪞", name: "Mirror world",        desc: "Left and right are flipped. Good luck." },
+  { id: "upside-down",    icon: "🙃", name: "Upside down",         desc: "Up and down are flipped." },
+  { id: "echo",           icon: "👯", name: "Echo",                desc: "Every stroke draws a ghost copy too." },
+  { id: "straight-lines", icon: "📐", name: "Straight lines only", desc: "Every stroke becomes a straight line." },
+];
+const CONSTRAINTS_BY_ID = Object.fromEntries(CONSTRAINTS.map(c => [c.id, c]));
+
+function getChaosMode() { return !!(state.room && state.room.chaosMode); }
+async function setChaosMode(on) {
+  if (!state.roomCode) return;
+  await update(roomRef(state.roomCode), { chaosMode: !!on });
+}
+function getMyConstraint() {
+  if (!state.room || !state.room.constraints) return null;
+  const round = state.room.round || 0;
+  return state.room.constraints[`${round}_${state.myId}`] || null;
+}
+function hashStr(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) - h) + s.charCodeAt(i);
+  return Math.abs(h);
+}
+function getWrongColor(playerId, round) {
+  const palette = ["#dc2626", "#f59e0b", "#16a34a", "#0284c7", "#7c3aed", "#db2777"];
+  return palette[hashStr(playerId + "_" + round) % palette.length];
+}
+function generateConstraintAssignments(players, numRounds) {
+  const ids = CONSTRAINTS.map(c => c.id);
+  const out = {};
+  for (let r = 0; r < numRounds; r++) {
+    for (const p of players) {
+      out[`${r}_${p.id}`] = ids[Math.floor(Math.random() * ids.length)];
+    }
+  }
+  return out;
 }
 
 // drawSession persists across renders WITHIN the same (round, drawing) so that
@@ -1118,9 +1230,28 @@ function commitInProgressPath() {
   drawSession.isDrawing = false;
   const path = drawSession.inProgressPath;
   drawSession.inProgressPath = null;
-  if (path && path.points && path.points.length > 0) {
-    drawSession.paths.push(path);
+  if (!path || !path.points || path.points.length === 0) return;
+  const c = getMyConstraint();
+  const finalPaths = applyCommitConstraint(c, path);
+  drawSession.paths.push(...finalPaths);
+}
+
+// Geometry-level constraints applied when a path is committed (mouseup or time-up).
+// Input-time transforms (trembling, mirror, upside-down) are already applied to points.
+function applyCommitConstraint(constraintId, path) {
+  if (constraintId === "straight-lines") {
+    if (path.points.length < 2) return [path];
+    return [{ ...path, points: [path.points[0], path.points[path.points.length - 1]] }];
   }
+  if (constraintId === "echo") {
+    const ghost = {
+      ...path,
+      points: path.points.map(p => [Math.min(1, Math.max(0, p[0] + 0.028)), Math.min(1, Math.max(0, p[1] + 0.028))]),
+      width: Math.max(1, (path.width || 4) * 0.55),
+    };
+    return [path, ghost];
+  }
+  return [path];
 }
 
 async function clickDone() {
@@ -1163,16 +1294,32 @@ function attachStrokeHandlers(canvas) {
     if (getStrokeMode() === STROKE_MODE_ONE && drawSession.paths.length >= 1) return false;
     return true;
   }
+  function transformInputPos(pos, constraintId) {
+    if (constraintId === "trembling") {
+      return [pos[0] + (Math.random() - 0.5) * 0.012, pos[1] + (Math.random() - 0.5) * 0.012];
+    }
+    if (constraintId === "mirror") return [1 - pos[0], pos[1]];
+    if (constraintId === "upside-down") return [pos[0], 1 - pos[1]];
+    return pos;
+  }
   function start(e) {
     if (!canStartDrawing()) return;
     e.preventDefault();
     startTimerIfNeeded();
     drawSession.isDrawing = true;
-    drawSession.inProgressPath = {
-      points: [getPos(e)],
-      color: state.selectedColor,
-      width: state.selectedWidth,
-    };
+    let color = state.selectedColor;
+    let width = state.selectedWidth;
+    const c = getMyConstraint();
+    if (c === "heavy-hand") width = 14;
+    else if (c === "hair-thin") width = 1;
+    if (c === "wrong-color") color = getWrongColor(state.myId, state.room.round || 0);
+    // The very first point is the raw cursor position (no tremble jitter — that'd look odd
+    // for a static touch), but mirror/upside-down still apply so the initial dot lands
+    // in the visually-mirrored spot.
+    let pos = getPos(e);
+    if (c === "mirror") pos = [1 - pos[0], pos[1]];
+    if (c === "upside-down") pos = [pos[0], 1 - pos[1]];
+    drawSession.inProgressPath = { points: [pos], color, width };
     window.addEventListener("mousemove", move);
     window.addEventListener("mouseup", end);
     redrawSession();
@@ -1180,7 +1327,8 @@ function attachStrokeHandlers(canvas) {
   function move(e) {
     if (!drawSession || !drawSession.isDrawing || !drawSession.inProgressPath) return;
     e.preventDefault();
-    drawSession.inProgressPath.points.push(getPos(e));
+    const pos = transformInputPos(getPos(e), getMyConstraint());
+    drawSession.inProgressPath.points.push(pos);
     redrawSession();
   }
   function end(e) {
@@ -1313,8 +1461,24 @@ function renderDrawing() {
   const canDrawMore = !submitted && drawSession && !drawSession.timeUp &&
     (mode === STROKE_MODE_TIME || drawSession.paths.length === 0);
 
-  // Tools visible whenever the player can still start a new stroke
-  const tools = canDrawMore ? renderTools() : null;
+  // Chaos mode: my constraint banner (only while I can still draw)
+  const myConstraintId = !submitted ? getMyConstraint() : null;
+  const myConstraint = myConstraintId ? CONSTRAINTS_BY_ID[myConstraintId] : null;
+  const constraintBanner = myConstraint
+    ? el("div", { class: "constraint-banner" },
+        el("div", { class: "icon" }, myConstraint.icon),
+        el("div", { class: "text" },
+          el("div", { class: "name" }, "Chaos handicap: " + myConstraint.name),
+          el("div", { class: "desc" }, myConstraint.desc),
+        ),
+      )
+    : null;
+
+  // Tools visible whenever the player can still start a new stroke. Hide pickers
+  // that are overridden by the current chaos constraint.
+  const hideColor = myConstraintId === "wrong-color";
+  const hideWidth = myConstraintId === "heavy-hand" || myConstraintId === "hair-thin";
+  const tools = canDrawMore ? renderTools({ hideColor, hideWidth }) : null;
 
   // Done button / draw prompt / time-up banner
   let actionRow = null;
@@ -1399,6 +1563,7 @@ function renderDrawing() {
     el("div", { class: "game-top" }, wordCard, timerCard),
     el("div", { class: "game-main" },
       el("div", { class: "game-canvas-area" },
+        constraintBanner,
         canvasWrap,
         tools,
         timeUpBanner,
@@ -1410,35 +1575,32 @@ function renderDrawing() {
   );
 }
 
-function renderTools() {
+function renderTools(opts = {}) {
   const colors = ["#18181b", "#dc2626", "#f59e0b", "#059669", "#0284c7", "#7c3aed", "#db2777", "#92400e"];
   const widths = [2, 4, 7, 12];
 
-  const colorEls = colors.map(c => el("button", {
-    class: "swatch" + (state.selectedColor === c ? " selected" : ""),
-    style: { background: c },
-    title: c,
-    onClick: () => { state.selectedColor = c; render(); }
-  }));
-  const widthEls = widths.map(w => {
-    const dot = el("span", { class: "dot", style: { width: w + "px", height: w + "px" }});
-    return el("button", {
-      class: "width-opt" + (state.selectedWidth === w ? " selected" : ""),
-      title: w + "px",
-      onClick: () => { state.selectedWidth = w; render(); }
-    }, dot);
-  });
-
-  return el("div", { class: "tools" },
-    el("div", { class: "tool-group" },
-      el("span", { class: "tool-label" }, "Color"),
-      ...colorEls
-    ),
-    el("div", { class: "tool-group" },
-      el("span", { class: "tool-label" }, "Size"),
-      ...widthEls
-    ),
+  const colorGroup = opts.hideColor ? null : el("div", { class: "tool-group" },
+    el("span", { class: "tool-label" }, "Color"),
+    ...colors.map(c => el("button", {
+      class: "swatch" + (state.selectedColor === c ? " selected" : ""),
+      style: { background: c },
+      title: c,
+      onClick: () => { state.selectedColor = c; render(); }
+    }))
   );
+  const widthGroup = opts.hideWidth ? null : el("div", { class: "tool-group" },
+    el("span", { class: "tool-label" }, "Size"),
+    ...widths.map(w => {
+      const dot = el("span", { class: "dot", style: { width: w + "px", height: w + "px" }});
+      return el("button", {
+        class: "width-opt" + (state.selectedWidth === w ? " selected" : ""),
+        title: w + "px",
+        onClick: () => { state.selectedWidth = w; render(); }
+      }, dot);
+    })
+  );
+  if (!colorGroup && !widthGroup) return null;
+  return el("div", { class: "tools" }, colorGroup, widthGroup);
 }
 
 // =================================================================
