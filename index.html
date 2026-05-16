@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Stroke Relay</title>
+<title>Drawing Relay</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
@@ -252,6 +252,21 @@
   .host-controls { margin-top: 20px; padding: 14px; background: white; border: 1px dashed var(--border-strong); border-radius: var(--radius); }
   .host-controls .label { margin-bottom: 8px; }
   .host-controls-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .host-controls-section { padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px dashed var(--border); }
+  .host-controls-section:last-child { border-bottom: 0; margin-bottom: 0; padding-bottom: 0; }
+
+  .stepper { display: inline-flex; align-items: stretch; border: 1px solid var(--border-strong); border-radius: 8px; background: white; overflow: hidden; height: 36px; }
+  .stepper button { width: 36px; border: 0; background: white; font-size: 16px; color: var(--text); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; font-weight: 600; }
+  .stepper button:hover:not(:disabled) { background: var(--bg); }
+  .stepper button:disabled { color: var(--text-faint); cursor: not-allowed; }
+  .stepper-value { padding: 0 18px; font-variant-numeric: tabular-nums; font-weight: 600; min-width: 64px; text-align: center; border-left: 1px solid var(--border); border-right: 1px solid var(--border); display: inline-flex; align-items: center; justify-content: center; }
+  .timer-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .timer-row .label { margin-bottom: 0; }
+
+  .lobby-host-config { background: white; border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .lobby-host-config .config-label { font-size: 13px; font-weight: 500; color: var(--text); }
+  .lobby-host-config .config-hint { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .lobby-host-readonly { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--text); }
 
   /* Reveal */
   .reveal-stage { text-align: center; }
@@ -427,6 +442,7 @@ async function createRoom(name) {
       [myId]: { id: myId, name, joinOrder: 0 }
     },
     round: 0,
+    roundSeconds: 3,
   };
   await set(roomRef(code), room);
   state.myId = myId;
@@ -615,6 +631,7 @@ async function hostNewGame() {
     createdAt: room.createdAt,
     players: playersOut,
     round: 0,
+    roundSeconds: room.roundSeconds || 3,
   });
 }
 
@@ -763,7 +780,7 @@ function renderHeader() {
   return el("div", { class: "header" },
     el("div", { class: "logo" },
       el("span", { class: "logo-mark", html: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent); width: 22px; height: 22px;"><path d="M3 17c3 -6 6 -6 9 0s6 6 9 0"/></svg>` }),
-      "Stroke Relay"
+      "Drawing Relay"
     ),
     right
   );
@@ -819,7 +836,7 @@ function renderLanding() {
   return el("div", { class: "landing-v2" },
     el("header", { class: "landing-hero" },
       el("div", { class: "landing-eyebrow" }, "A drawing game · One stroke each"),
-      el("h1", { class: "landing-title" }, "Stroke Relay"),
+      el("h1", { class: "landing-title" }, "Drawing Relay"),
       el("p", { class: "landing-lede" }, "Every player gets a secret word. Add one stroke. Pass it on. Watch what comes back."),
     ),
 
@@ -877,11 +894,42 @@ function renderLanding() {
 // =================================================================
 // LOBBY
 // =================================================================
+function renderTimerStepper(disabledNote) {
+  const current = getRoundSeconds();
+  return el("div", { class: "stepper" },
+    el("button", {
+      onClick: () => setRoundSeconds(current - 1),
+      disabled: current <= MIN_ROUND_SECONDS,
+      title: "Decrease",
+    }, "−"),
+    el("span", { class: "stepper-value" }, current + "s"),
+    el("button", {
+      onClick: () => setRoundSeconds(current + 1),
+      disabled: current >= MAX_ROUND_SECONDS,
+      title: "Increase",
+    }, "+"),
+  );
+}
+
 function renderLobby() {
   const room = state.room;
   if (!room) return el("div", null, "Loading...");
   const players = playersByOrder(room);
   const isHost = state.isHost;
+  const currentSeconds = getRoundSeconds();
+
+  const timerConfig = el("div", { class: "lobby-host-config" },
+    el("div", null,
+      el("div", { class: "config-label" }, "Time per stroke"),
+      el("div", { class: "config-hint" },
+        isHost ? "Each player has this long to draw their stroke. You can change it any time." : "Set by host."
+      ),
+    ),
+    isHost
+      ? renderTimerStepper()
+      : el("div", { class: "lobby-host-readonly" }, currentSeconds + "s"),
+  );
+
   return el("div", { class: "stack-lg" },
     el("div", { class: "card" },
       el("div", { class: "lobby-header" },
@@ -893,6 +941,7 @@ function renderLobby() {
         el("div", { class: "lobby-code-value" }, state.roomCode),
         el("div", { class: "lobby-code-hint" }, "Tell your team to open this URL and join with this code."),
       ),
+      timerConfig,
       el("div", { class: "section-header" },
         el("h3", null, "Players"),
         el("div", { class: "count" }, `${players.length} joined`),
@@ -923,8 +972,19 @@ function renderLobby() {
 // =================================================================
 // DRAWING SCREEN
 // =================================================================
-// Timer length per round, in seconds
-const ROUND_SECONDS = 3;
+// Default timer length per round, in seconds. Host can override per-room in the lobby
+// or mid-game; the live value lives in state.room.roundSeconds.
+const DEFAULT_ROUND_SECONDS = 3;
+const MIN_ROUND_SECONDS = 1;
+const MAX_ROUND_SECONDS = 30;
+function getRoundSeconds() {
+  return (state.room && state.room.roundSeconds) || DEFAULT_ROUND_SECONDS;
+}
+async function setRoundSeconds(value) {
+  const v = Math.max(MIN_ROUND_SECONDS, Math.min(MAX_ROUND_SECONDS, Math.round(value)));
+  if (!state.roomCode) return;
+  await update(roomRef(state.roomCode), { roundSeconds: v });
+}
 
 // drawSession persists across renders WITHIN the same (round, drawing) so that
 // re-renders triggered by other players' updates don't destroy the canvas
@@ -962,23 +1022,27 @@ function startTimerIfNeeded() {
   if (!drawSession || drawSession.startTime || drawSession.submitting) return;
   drawSession.startTime = Date.now();
   drawSession.timerHandle = setInterval(tickTimer, 80);
-  // Swap the timer card from "Timer starts on first stroke" to the live countdown
-  // so tickTimer can find the #timer-num / #timer-bar elements it updates.
-  render();
+  // Tick once immediately so the visual updates without waiting 80ms (or for a render).
+  tickTimer();
 }
 
 function tickTimer() {
-  if (!drawSession) return;
+  if (!drawSession || !drawSession.startTime) return;
+  const total = getRoundSeconds();
   const elapsed = (Date.now() - drawSession.startTime) / 1000;
-  const remaining = Math.max(0, ROUND_SECONDS - elapsed);
+  const remaining = Math.max(0, total - elapsed);
   const numEl = document.getElementById("timer-num");
   const barEl = document.getElementById("timer-bar");
+  const labelEl = document.getElementById("timer-label");
+  if (labelEl && labelEl.textContent !== "Time left") {
+    labelEl.textContent = "Time left";
+  }
   if (numEl) {
     numEl.textContent = remaining.toFixed(1) + "s";
     numEl.classList.toggle("urgent", remaining <= 1);
   }
   if (barEl) {
-    barEl.style.width = (remaining / ROUND_SECONDS * 100) + "%";
+    barEl.style.width = (remaining / total * 100) + "%";
     barEl.classList.toggle("urgent", remaining <= 1);
   }
   if (remaining <= 0 && !drawSession.timeUp) {
@@ -1138,23 +1202,22 @@ function renderDrawing() {
       el("div", { class: "label" }, "Time"),
       el("div", { class: "timer-value" }, "—"),
     );
-  } else if (drawSession && drawSession.startTime) {
-    const initialRemaining = Math.max(0, ROUND_SECONDS - (Date.now() - drawSession.startTime) / 1000);
-    const isUrgent = initialRemaining <= 1;
-    timerCard = el("div", { class: "timer-card", id: "timer-card" },
-      el("div", { class: "label" }, "Time left"),
-      el("div", { class: "timer-value" + (isUrgent ? " urgent" : ""), id: "timer-num" }, initialRemaining.toFixed(1) + "s"),
-      el("div", { class: "timer-bar" },
-        el("div", { class: "timer-bar-fill" + (isUrgent ? " urgent" : ""), id: "timer-bar", style: { width: (initialRemaining / ROUND_SECONDS * 100) + "%" }})
-      ),
-    );
   } else {
-    // Timer hasn't started yet — show full 3s, ready state
+    // Single structure for both "not started yet" and "ticking" — tickTimer updates
+    // these elements directly. Same IDs in both states so the visual swap is instant
+    // on the first mousedown (no re-render needed).
+    const total = getRoundSeconds();
+    const started = !!(drawSession && drawSession.startTime);
+    const remaining = started
+      ? Math.max(0, total - (Date.now() - drawSession.startTime) / 1000)
+      : total;
+    const isUrgent = started && remaining <= 1;
+    const labelText = started ? "Time left" : `Timer starts on first stroke`;
     timerCard = el("div", { class: "timer-card", id: "timer-card" },
-      el("div", { class: "label" }, "Timer starts on first stroke"),
-      el("div", { class: "timer-value" }, ROUND_SECONDS.toFixed(1) + "s"),
+      el("div", { class: "label", id: "timer-label" }, labelText),
+      el("div", { class: "timer-value" + (isUrgent ? " urgent" : ""), id: "timer-num" }, remaining.toFixed(1) + "s"),
       el("div", { class: "timer-bar" },
-        el("div", { class: "timer-bar-fill", style: { width: "100%" }})
+        el("div", { class: "timer-bar-fill" + (isUrgent ? " urgent" : ""), id: "timer-bar", style: { width: (remaining / total * 100) + "%" }})
       ),
     );
   }
@@ -1211,7 +1274,7 @@ function renderDrawing() {
       );
     } else {
       actionRow = el("div", { class: "draw-prompt" },
-        el("strong", null, "Click and drag"), " to make your one stroke. The ", el("strong", null, ROUND_SECONDS + "-second timer"), " starts when you do."
+        el("strong", null, "Click and drag"), " to make your one stroke. The ", el("strong", null, getRoundSeconds() + "-second timer"), " starts when you do."
       );
     }
   }
@@ -1237,22 +1300,32 @@ function renderDrawing() {
     ...allPlayersRows,
   );
 
-  // Host controls
+  // Host controls (timer adjust + skip stuck players)
   let hostBox = null;
-  if (state.isHost && stillDrawing.length > 0) {
-    hostBox = el("div", { class: "host-controls" },
-      el("div", { class: "label" }, "Host: skip a stuck player"),
-      el("div", { class: "host-controls-row" },
-        ...stillDrawing.map(p => el("button", {
-          class: "btn btn-danger", style: { height: "32px", fontSize: "13px" },
-          onClick: async () => {
-            if (confirm(`Skip ${p.name}'s stroke this round? Their stroke will be left blank.`)) {
-              try { await hostSkipPlayer(p.id); } catch (e) { state.error = e.message; render(); }
-            }
-          }
-        }, `Skip ${p.name}`)),
+  if (state.isHost) {
+    const timerSection = el("div", { class: "host-controls-section" },
+      el("div", { class: "timer-row" },
+        el("div", { class: "label" }, "Time per stroke"),
+        renderTimerStepper(),
+        el("span", { style: { fontSize: "12px", color: "var(--text-muted)" }}, "Applies to the next stroke timer that starts."),
       ),
     );
+    const skipSection = stillDrawing.length > 0
+      ? el("div", { class: "host-controls-section" },
+          el("div", { class: "label" }, "Skip a stuck player"),
+          el("div", { class: "host-controls-row" },
+            ...stillDrawing.map(p => el("button", {
+              class: "btn btn-danger", style: { height: "32px", fontSize: "13px" },
+              onClick: async () => {
+                if (confirm(`Skip ${p.name}'s stroke this round? Their stroke will be left blank.`)) {
+                  try { await hostSkipPlayer(p.id); } catch (e) { state.error = e.message; render(); }
+                }
+              }
+            }, `Skip ${p.name}`)),
+          ),
+        )
+      : null;
+    hostBox = el("div", { class: "host-controls" }, timerSection, skipSection);
   }
 
   return el("div", { class: "stack-lg" },
